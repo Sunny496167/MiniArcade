@@ -1,28 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Animated, { ZoomIn, FadeIn, BounceIn } from 'react-native-reanimated';
-import { Zap, AlertTriangle, CheckCircle2, RotateCcw } from 'lucide-react-native';
+import { View, StyleSheet } from 'react-native';
 import { GameContainer } from '../../components/shared/GameContainer';
 import { GAMES_REGISTRY } from '../../constants/gamesRegistry';
-import { ReactionState, ReflexPhase } from './types';
+import { ReactionState, ReflexPhase, ReactionTrial, ChallengeType } from './types';
 import {
   createInitialReactionState,
-  getReflexTier,
-  calculateReflexScore,
-  TOTAL_TRIALS,
+  getLevelConfig,
+  generateChallenge,
+  scoreForTrial,
+  TOTAL_LEVELS,
+  HOLD_DURATION_MS,
+  DOUBLE_TAP_WINDOW_MS,
 } from './engine/reactionEngine';
-import { COLORS } from '../../constants/theme';
+import { LevelBadge } from './components/LevelBadge';
+import { ChallengeArena } from './components/ChallengeArena';
+import { StreakBanner } from './components/StreakBanner';
+import { LevelCompleteOverlay } from './components/LevelCompleteOverlay';
 import { audioService } from '../../services/audioService';
 import { hapticsService } from '../../services/hapticsService';
 
+// ── Inner Component to handle React hooks safely inside the render prop ─────
 interface SpeedReflexGameInnerProps {
   gameState: string;
   triggerGameOver: (finalScore: number, won?: boolean, contextualStats?: any[]) => void;
   state: ReactionState;
   setState: React.Dispatch<React.SetStateAction<ReactionState>>;
+  startNextTrial: () => void;
+  clearAllTimers: () => void;
   timerRef: React.MutableRefObject<any>;
+  windowTimerRef: React.MutableRefObject<any>;
+  holdTimerRef: React.MutableRefObject<any>;
+  doubleTapTimerRef: React.MutableRefObject<any>;
+  doubleTapCountRef: React.MutableRefObject<number>;
   stateRef: React.MutableRefObject<ReactionState>;
-  startNextRound: () => void;
 }
 
 const SpeedReflexGameInner: React.FC<SpeedReflexGameInnerProps> = ({
@@ -30,193 +40,222 @@ const SpeedReflexGameInner: React.FC<SpeedReflexGameInnerProps> = ({
   triggerGameOver,
   state,
   setState,
-  timerRef,
+  startNextTrial,
+  clearAllTimers,
+  windowTimerRef,
+  holdTimerRef,
+  doubleTapTimerRef,
+  doubleTapCountRef,
   stateRef,
-  startNextRound,
 }) => {
-  // Auto-start round 1 when entering PLAYING
+  // Auto-start next trial
   useEffect(() => {
-    if (gameState === 'PLAYING' && state.phase === 'READY') {
-      startNextRound();
+    if (gameState === 'PLAYING' && (state.phase === 'READY' || state.phase === 'ROUND_RESULT')) {
+      if (state.phase === 'READY') {
+        startNextTrial();
+      }
     }
-    if (gameState !== 'PLAYING' && timerRef.current) {
-      clearTimeout(timerRef.current);
+    if (gameState !== 'PLAYING') {
+      clearAllTimers();
     }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+  }, [gameState, state.phase]);
+
+  const failTrial = (phase: ReflexPhase) => {
+    clearAllTimers();
+    audioService.play('gameOver');
+    hapticsService.heavy();
+    
+    setState(prev => ({
+      ...prev,
+      phase,
+      streakCount: 0,
+      missCount: prev.missCount + 1,
+      levelScore: Math.max(0, prev.levelScore - 50),
+      totalScore: Math.max(0, prev.totalScore - 50),
+    }));
+  };
+
+  const completeTrial = (timeMs: number) => {
+    clearAllTimers();
+    audioService.play('win');
+    hapticsService.success();
+
+    const cur = stateRef.current;
+    const streak = cur.streakCount + 1;
+    const maxStreak = Math.max(cur.maxStreak, streak);
+    const score = scoreForTrial(timeMs, cur.challengeType, cur.currentLevel, streak);
+
+    const trialObj: ReactionTrial = {
+      trialNumber: cur.currentLevelTrial,
+      timeMs,
+      challengeType: cur.challengeType,
+      correct: true,
     };
-  }, [gameState, state.phase, startNextRound, timerRef]);
 
-  const handleScreenTap = () => {
-    if (gameState !== 'PLAYING') return;
+    const newLevelTrials = [...cur.levelTrials, trialObj];
+    const newTrials = [...cur.trials, trialObj];
+    const best = cur.bestTimeMs === null ? timeMs : Math.min(cur.bestTimeMs, timeMs);
+    const avg = Math.round(newTrials.reduce((s, t) => s + t.timeMs, 0) / newTrials.length);
 
-    const current = stateRef.current;
+    const config = getLevelConfig(cur.currentLevel);
 
-    // Case 1: Tapped while WAITING -> Too early / False start!
-    if (current.phase === 'WAITING') {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      audioService.play('gameOver');
-      hapticsService.heavy();
-
-      setState((prev) => ({
+    if (cur.currentLevelTrial >= config.trialsCount) {
+      // Level Complete
+      setState(prev => ({
         ...prev,
-        phase: 'TOO_EARLY',
-        falseStarts: prev.falseStarts + 1,
+        phase: 'LEVEL_COMPLETE',
+        streakCount: streak,
+        maxStreak,
+        lastTimeMs: timeMs,
+        bestTimeMs: best,
+        averageTimeMs: avg,
+        levelTrials: newLevelTrials,
+        trials: newTrials,
+        levelScore: prev.levelScore + score,
+        totalScore: prev.totalScore + score,
       }));
-      return;
+    } else {
+      // Next Trial in level
+      setState(prev => ({
+        ...prev,
+        phase: 'ROUND_RESULT',
+        streakCount: streak,
+        maxStreak,
+        lastTimeMs: timeMs,
+        bestTimeMs: best,
+        averageTimeMs: avg,
+        levelTrials: newLevelTrials,
+        trials: newTrials,
+        levelScore: prev.levelScore + score,
+        totalScore: prev.totalScore + score,
+      }));
+    }
+  };
+
+  const handlePressIn = () => {
+    const cur = stateRef.current;
+    
+    if (cur.phase === 'WAITING') {
+      return failTrial('TOO_EARLY');
+    }
+    
+    if (cur.phase === 'DECOY') {
+      return failTrial('WRONG_COLOR');
     }
 
-    // Case 2: Tapped when REACT_NOW -> Record reaction time!
-    if (current.phase === 'REACT_NOW') {
-      const reactionTime = Date.now() - current.startTime;
-      audioService.play('win');
-      hapticsService.success();
+    if (cur.phase === 'REACT_NOW' || cur.phase === 'HOLD_NOW') {
+      const reactionTime = Date.now() - cur.startTime;
 
-      const updatedTrials = [
-        ...current.trials,
-        { trialNumber: current.currentTrial, timeMs: reactionTime },
-      ];
+      if (cur.challengeType === 'HOLD') {
+        // Start holding
+        if (windowTimerRef.current) clearTimeout(windowTimerRef.current);
+        holdTimerRef.current = setTimeout(() => {
+          // Successfully held for duration
+          completeTrial(reactionTime); // using initial reaction time for score
+        }, HOLD_DURATION_MS);
+        return;
+      }
 
-      const best =
-        current.bestTimeMs === null
-          ? reactionTime
-          : Math.min(current.bestTimeMs, reactionTime);
+      if (cur.challengeType === 'DOUBLE_TAP') {
+        if (doubleTapCountRef.current === 0) {
+          // First tap
+          if (windowTimerRef.current) clearTimeout(windowTimerRef.current);
+          doubleTapCountRef.current = 1;
+          
+          doubleTapTimerRef.current = setTimeout(() => {
+            failTrial('MISSED');
+          }, DOUBLE_TAP_WINDOW_MS);
+        } else {
+          // Second tap
+          if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
+          completeTrial(reactionTime); // time of second tap
+        }
+        return;
+      }
 
-      const avg = Math.round(
-        updatedTrials.reduce((sum, t) => sum + t.timeMs, 0) /
-          updatedTrials.length
-      );
+      // Standard tap or color match
+      if (windowTimerRef.current) clearTimeout(windowTimerRef.current);
+      completeTrial(reactionTime);
+    }
+  };
 
-      // Check if completed 5 rounds
-      if (current.currentTrial >= TOTAL_TRIALS) {
-        const finalScore = calculateReflexScore(
-          updatedTrials,
-          current.falseStarts
-        );
-        const tier = getReflexTier(best);
-
-        setState((prev) => ({
-          ...prev,
-          phase: 'FINAL_COMPLETE',
-          trials: updatedTrials,
-          lastTimeMs: reactionTime,
-          bestTimeMs: best,
-          averageTimeMs: avg,
-        }));
-
-        triggerGameOver(finalScore, true, [
-          { label: 'Best Reaction', value: `${best} ms`, isHighlight: true },
-          { label: 'Average Reflex', value: `${avg} ms` },
-          { label: 'Neural Rank', value: tier.badge },
-          { label: 'False Starts', value: current.falseStarts },
-        ]);
-      } else {
-        setState((prev) => ({
-          ...prev,
-          phase: 'ROUND_RESULT',
-          currentTrial: prev.currentTrial + 1,
-          trials: updatedTrials,
-          lastTimeMs: reactionTime,
-          bestTimeMs: best,
-          averageTimeMs: avg,
-        }));
+  const handlePressOut = () => {
+    const cur = stateRef.current;
+    if (cur.phase === 'HOLD_NOW' && cur.challengeType === 'HOLD') {
+      // Released early!
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        failTrial('TOO_EARLY');
       }
     }
   };
 
-  const renderContent = () => {
-    switch (state.phase) {
-      case 'WAITING':
-        return (
-          <Animated.View entering={ZoomIn.duration(300)} style={[styles.feedbackBox, styles.waitingBox]}>
-            <Zap size={48} color={COLORS.amber} />
-            <Text style={styles.waitingTitle}>WAIT FOR GREEN...</Text>
-            <Text style={styles.subInstruction}>Do not tap yet!</Text>
-          </Animated.View>
-        );
-
-      case 'REACT_NOW':
-        return (
-          <Animated.View entering={ZoomIn.duration(200).springify().damping(12)} style={[styles.feedbackBox, styles.reactBox]}>
-            <Text style={styles.reactTitle}>TAP NOW!</Text>
-          </Animated.View>
-        );
-
-      case 'TOO_EARLY':
-        return (
-          <Animated.View entering={BounceIn.duration(400)} style={[styles.feedbackBox, styles.errorBox]}>
-            <AlertTriangle size={48} color={COLORS.rose} />
-            <Text style={styles.errorTitle}>TOO EARLY!</Text>
-            <Text style={styles.subInstruction}>Wait for the green signal.</Text>
-            <TouchableOpacity
-              style={styles.retryBtn}
-              onPress={startNextRound}
-              activeOpacity={0.8}
-            >
-              <RotateCcw size={16} color="#0B0E14" />
-              <Text style={styles.retryBtnText}>RETRY ROUND</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        );
-
-      case 'ROUND_RESULT':
-        const lastTier = getReflexTier(state.lastTimeMs || 300);
-        return (
-          <Animated.View entering={FadeIn.duration(300)} style={[styles.feedbackBox, styles.resultBox]}>
-            <CheckCircle2 size={44} color={lastTier.color} />
-            <Text style={[styles.resultTime, { color: lastTier.color }]}>
-              {state.lastTimeMs} ms
-            </Text>
-            <Text style={styles.tierTitle}>{lastTier.title}</Text>
-            <TouchableOpacity
-              style={styles.nextRoundBtn}
-              onPress={startNextRound}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.nextRoundText}>
-                NEXT TRIAL ({state.currentTrial}/{TOTAL_TRIALS})
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        );
-
-      default:
-        return (
-          <Animated.View entering={FadeIn} style={styles.feedbackBox}>
-            <Text style={styles.waitingTitle}>INITIALIZING...</Text>
-          </Animated.View>
-        );
-    }
+  const nextLevel = () => {
+    setState(prev => ({
+      ...prev,
+      currentLevel: prev.currentLevel + 1,
+      currentLevelTrial: 1,
+      levelTrials: [],
+      levelScore: 0,
+      phase: 'READY',
+    }));
   };
 
+  const handleFinishGame = () => {
+    triggerGameOver(state.totalScore, true, [
+      { label: 'Best Reaction', value: `${state.bestTimeMs || 0} ms`, isHighlight: true },
+      { label: 'Average Reflex', value: `${state.averageTimeMs || 0} ms` },
+      { label: 'Max Streak', value: `${state.maxStreak}x` },
+      { label: 'False Starts', value: state.missCount },
+    ]);
+  };
+
+  const handleNextTrialBtn = () => {
+    setState(prev => ({ ...prev, currentLevelTrial: prev.currentLevelTrial + 1 }));
+    startNextTrial();
+  };
+
+  const nextLevelConfig = state.currentLevel < TOTAL_LEVELS ? getLevelConfig(state.currentLevel + 1) : null;
+  const config = getLevelConfig(state.currentLevel);
+
   return (
-    <TouchableOpacity
-      style={styles.fullScreenTouch}
-      activeOpacity={1}
-      onPress={handleScreenTap}
-    >
-      {/* Round progress dots */}
-      <View style={styles.roundTracker}>
-        {Array.from({ length: TOTAL_TRIALS }).map((_, idx) => (
-          <View
-            key={idx}
-            style={[
-              styles.roundDot,
-              idx + 1 < state.currentTrial && styles.roundDotCompleted,
-              idx + 1 === state.currentTrial && styles.roundDotActive,
-            ]}
-          />
-        ))}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <LevelBadge 
+          currentLevel={state.currentLevel}
+          currentTrial={state.currentLevelTrial}
+          totalTrials={config.trialsCount}
+          totalScore={state.totalScore}
+        />
       </View>
 
-      {renderContent()}
-
-      <View style={styles.bottomInfo}>
-        <Text style={styles.bottomInfoText}>
-          Trial {Math.min(state.currentTrial, TOTAL_TRIALS)} of {TOTAL_TRIALS}
-        </Text>
+      <View style={styles.arenaContainer}>
+        <ChallengeArena 
+          state={state}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onRetry={startNextTrial}
+          onNextTrial={handleNextTrialBtn}
+        />
       </View>
-    </TouchableOpacity>
+
+      <View style={styles.footer}>
+         <StreakBanner 
+           streak={state.streakCount} 
+           multiplier={state.streakCount > 0 ? getLevelConfig(state.currentLevel).level * (state.streakCount > 6 ? 2.0 : state.streakCount > 4 ? 1.5 : state.streakCount > 2 ? 1.25 : 1.0) : 1}
+         />
+      </View>
+
+      <LevelCompleteOverlay 
+        visible={state.phase === 'LEVEL_COMPLETE'}
+        level={state.currentLevel}
+        scoreEarned={state.levelScore}
+        trials={state.levelTrials}
+        nextLevelConfig={nextLevelConfig}
+        onNextLevel={nextLevel}
+        onFinishGame={handleFinishGame}
+      />
+    </View>
   );
 };
 
@@ -224,41 +263,93 @@ export const SpeedReflexScreen: React.FC = () => {
   const gameMetadata = GAMES_REGISTRY.find((g) => g.id === 'reaction')!;
 
   const [state, setState] = useState<ReactionState>(createInitialReactionState());
+  
   const timerRef = useRef<any>(null);
+  const windowTimerRef = useRef<any>(null);
+  const holdTimerRef = useRef<any>(null);
+  const doubleTapTimerRef = useRef<any>(null);
+  const doubleTapCountRef = useRef<number>(0);
+  
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const resetGame = () => {
+  const clearAllTimers = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (windowTimerRef.current) clearTimeout(windowTimerRef.current);
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
+  };
+
+  const resetGame = () => {
+    clearAllTimers();
     setState(createInitialReactionState());
   };
 
-  const startNextRound = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-
-    setState((prev) => ({
+  const showSignal = (challenge: ChallengeType, windowMs: number | null) => {
+    audioService.play('pointScore');
+    hapticsService.heavy();
+    
+    setState(prev => ({
       ...prev,
-      phase: 'WAITING',
+      phase: challenge === 'HOLD' ? 'HOLD_NOW' : 'REACT_NOW',
+      isDecoy: false,
+      startTime: Date.now(),
     }));
 
-    // Random delay between 1.5s and 4.0s
-    const randomDelay = 1500 + Math.random() * 2500;
+    if (windowMs) {
+      windowTimerRef.current = setTimeout(() => {
+        // Fail via MISSED - directly mutate state since we are inside timeout
+        clearAllTimers();
+        audioService.play('gameOver');
+        hapticsService.heavy();
+        
+        setState(prev => ({
+          ...prev,
+          phase: 'MISSED',
+          streakCount: 0,
+          missCount: prev.missCount + 1,
+          levelScore: Math.max(0, prev.levelScore - 50),
+          totalScore: Math.max(0, prev.totalScore - 50),
+        }));
+      }, windowMs);
+    }
+  };
+
+  const startNextTrial = () => {
+    clearAllTimers();
+    doubleTapCountRef.current = 0;
+
+    const config = getLevelConfig(stateRef.current.currentLevel);
+    const challenge = generateChallenge(config);
+    
+    setState(prev => ({
+      ...prev,
+      phase: 'WAITING',
+      challengeType: challenge,
+      isDecoy: false,
+    }));
+
+    const delay = config.minDelayMs + Math.random() * (config.maxDelayMs - config.minDelayMs);
 
     timerRef.current = setTimeout(() => {
-      audioService.play('pointScore');
-      hapticsService.heavy();
-      setState((prev) => ({
-        ...prev,
-        phase: 'REACT_NOW',
-        startTime: Date.now(),
-      }));
-    }, randomDelay);
+      // 50% chance for decoy on color match
+      if (challenge === 'COLOR_MATCH' && Math.random() > 0.5) {
+        setState(prev => ({ ...prev, phase: 'DECOY', isDecoy: true }));
+        
+        // Decoy lasts 400-600ms, then switch to real signal
+        timerRef.current = setTimeout(() => {
+          showSignal(challenge, config.windowMs);
+        }, 400 + Math.random() * 200);
+      } else {
+        showSignal(challenge, config.windowMs);
+      }
+    }, delay);
   };
 
   return (
     <GameContainer
       game={gameMetadata}
-      score={calculateReflexScore(state.trials, state.falseStarts)}
+      score={state.totalScore}
       onResetGame={resetGame}
     >
       {({ gameState, triggerGameOver }) => (
@@ -267,9 +358,14 @@ export const SpeedReflexScreen: React.FC = () => {
           triggerGameOver={triggerGameOver}
           state={state}
           setState={setState}
+          startNextTrial={startNextTrial}
+          clearAllTimers={clearAllTimers}
           timerRef={timerRef}
+          windowTimerRef={windowTimerRef}
+          holdTimerRef={holdTimerRef}
+          doubleTapTimerRef={doubleTapTimerRef}
+          doubleTapCountRef={doubleTapCountRef}
           stateRef={stateRef}
-          startNextRound={startNextRound}
         />
       )}
     </GameContainer>
@@ -277,125 +373,26 @@ export const SpeedReflexScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  fullScreenTouch: {
+  container: {
     flex: 1,
+    padding: 16,
     justifyContent: 'space-between',
+  },
+  header: {
     alignItems: 'center',
-    padding: 24,
+    paddingTop: 10,
+    zIndex: 10,
   },
-  roundTracker: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  roundDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  roundDotCompleted: {
-    backgroundColor: COLORS.cyan,
-  },
-  roundDotActive: {
-    backgroundColor: COLORS.amber,
-    width: 20,
-  },
-  feedbackBox: {
-    width: '100%',
+  arenaContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 24,
     marginVertical: 20,
-    padding: 20,
   },
-  waitingBox: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderWidth: 2,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  waitingTitle: {
-    color: COLORS.amber,
-    fontSize: 26,
-    fontWeight: '900',
-    marginTop: 16,
-  },
-  subInstruction: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginTop: 8,
-  },
-  reactBox: {
-    backgroundColor: COLORS.lime,
-  },
-  reactTitle: {
-    color: '#0B0E14',
-    fontSize: 48,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-  errorBox: {
-    backgroundColor: 'rgba(244, 63, 94, 0.1)',
-    borderWidth: 2,
-    borderColor: COLORS.rose,
-  },
-  errorTitle: {
-    color: COLORS.rose,
-    fontSize: 28,
-    fontWeight: '900',
-    marginTop: 14,
-  },
-  retryBtn: {
-    flexDirection: 'row',
+  footer: {
+    minHeight: 60,
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.rose,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 14,
-    marginTop: 20,
-  },
-  retryBtnText: {
-    color: '#0B0E14',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  resultBox: {
-    backgroundColor: 'rgba(0, 240, 255, 0.08)',
-    borderWidth: 2,
-    borderColor: 'rgba(0, 240, 255, 0.3)',
-  },
-  resultTime: {
-    fontSize: 48,
-    fontWeight: '900',
-    marginVertical: 6,
-  },
-  tierTitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  nextRoundBtn: {
-    backgroundColor: COLORS.cyan,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 24,
-  },
-  nextRoundText: {
-    color: '#0B0E14',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  bottomInfo: {
-    marginBottom: 8,
-  },
-  bottomInfoText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
+    justifyContent: 'center',
+    paddingBottom: 20,
+  }
 });
