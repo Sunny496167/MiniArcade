@@ -12,6 +12,7 @@ interface GameIntroProps {
   game: GameMetadata;
   onPlay: () => void;
   onBack: () => void;
+  settingsUI?: React.ReactNode;
 }
 
 const renderGameIcon = (iconName: string, color: string, size: number = 40) => {
@@ -33,7 +34,7 @@ const renderGameIcon = (iconName: string, color: string, size: number = 40) => {
   }
 };
 
-export const GameIntro: React.FC<GameIntroProps> = ({ game, onPlay, onBack }) => {
+export const GameIntro: React.FC<GameIntroProps> = ({ game, onPlay, onBack, settingsUI }) => {
   const { stats } = useArcade();
   const gameStats = stats[game.id] || { highScore: 0, timesPlayed: 0 };
 
@@ -156,6 +157,14 @@ export const GameIntro: React.FC<GameIntroProps> = ({ game, onPlay, onBack }) =>
             </View>
           ))}
         </View>
+
+        {/* Custom Settings UI */}
+        {settingsUI && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>GAME OPTIONS</Text>
+            {settingsUI}
+          </View>
+        )}
 
         {/* Controls */}
         <View style={styles.sectionCard}>

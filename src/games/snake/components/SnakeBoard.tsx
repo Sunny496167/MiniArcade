@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { Position, FoodItem } from '../types';
+import { Position, FoodItem, BorderMode, Direction } from '../types';
 import { GRID_SIZE } from '../engine/snakeEngine';
 import { COLORS } from '../../../constants/theme';
 
@@ -8,6 +8,8 @@ interface SnakeBoardProps {
   snake: Position[];
   food: FoodItem;
   bonusFood: FoodItem | null;
+  borderMode?: BorderMode;
+  direction?: Direction;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -18,15 +20,85 @@ export const SnakeBoard: React.FC<SnakeBoardProps> = ({
   snake,
   food,
   bonusFood,
+  borderMode = 'full',
+  direction = 'UP',
 }) => {
+  const getAdjacency = (current: Position, other?: Position) => {
+    if (!other) return null;
+    if (other.x === current.x) {
+      if (other.y === current.y - 1 || (other.y === GRID_SIZE - 1 && current.y === 0)) return 'top';
+      if (other.y === current.y + 1 || (other.y === 0 && current.y === GRID_SIZE - 1)) return 'bottom';
+    }
+    if (other.y === current.y) {
+      if (other.x === current.x - 1 || (other.x === GRID_SIZE - 1 && current.x === 0)) return 'left';
+      if (other.x === current.x + 1 || (other.x === 0 && current.x === GRID_SIZE - 1)) return 'right';
+    }
+    return null;
+  };
+
+  const getBorderStyle = () => {
+    switch (borderMode) {
+      case 'none':
+        return { borderColor: 'rgba(16, 185, 129, 0.1)', borderStyle: 'dashed' as const };
+      case 'mixed':
+        return { 
+          borderLeftColor: 'rgba(239, 68, 68, 0.5)', 
+          borderRightColor: 'rgba(239, 68, 68, 0.5)',
+          borderTopColor: 'rgba(16, 185, 129, 0.1)',
+          borderBottomColor: 'rgba(16, 185, 129, 0.1)',
+          borderTopStyle: 'dashed' as const,
+          borderBottomStyle: 'dashed' as const,
+        };
+      case 'full':
+      default:
+        return { borderColor: 'rgba(239, 68, 68, 0.5)' }; // Reddish for deadly walls
+    }
+  };
+
   return (
-    <View style={[styles.board, { width: BOARD_SIZE, height: BOARD_SIZE }]}>
+    <View style={[styles.board, { width: BOARD_SIZE, height: BOARD_SIZE }, getBorderStyle()]}>
       {/* Background Cyber Grid lines */}
       <View style={styles.gridOverlay} />
 
       {/* Snake Body Segments */}
       {snake.map((segment, index) => {
         const isHead = index === 0;
+        const prev = snake[index - 1];
+        const next = snake[index + 1];
+
+        const adjPrev = getAdjacency(segment, prev);
+        const adjNext = getAdjacency(segment, next);
+
+        const sides = [adjPrev, adjNext].filter(Boolean);
+        let radii = {
+          borderTopLeftRadius: 6,
+          borderTopRightRadius: 6,
+          borderBottomLeftRadius: 6,
+          borderBottomRightRadius: 6,
+        };
+
+        if (sides.includes('top')) {
+          radii.borderTopLeftRadius = 0;
+          radii.borderTopRightRadius = 0;
+        }
+        if (sides.includes('bottom')) {
+          radii.borderBottomLeftRadius = 0;
+          radii.borderBottomRightRadius = 0;
+        }
+        if (sides.includes('left')) {
+          radii.borderTopLeftRadius = 0;
+          radii.borderBottomLeftRadius = 0;
+        }
+        if (sides.includes('right')) {
+          radii.borderTopRightRadius = 0;
+          radii.borderBottomRightRadius = 0;
+        }
+
+        // Taper the body towards the tail
+        const scaleFactor = snake.length > 2 
+          ? 1 - (index / (snake.length - 1)) * 0.45 
+          : 1;
+
         return (
           <View
             key={`snake-${index}`}
@@ -44,8 +116,17 @@ export const SnakeBoard: React.FC<SnakeBoardProps> = ({
               style={[
                 styles.segmentInner,
                 isHead ? styles.snakeHead : styles.snakeBody,
+                radii,
+                { transform: [{ scale: scaleFactor }] }
               ]}
-            />
+            >
+              {isHead && (
+                <View style={[styles.eyesContainer, styles[`eyes${direction}` as keyof typeof styles]]}>
+                  <View style={styles.eye} />
+                  <View style={styles.eye} />
+                </View>
+              )}
+            </View>
           </View>
         );
       })}
@@ -155,5 +236,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 10,
     elevation: 6,
+  },
+  eyesContainer: {
+    position: 'absolute',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    height: '100%',
+    padding: 2,
+  },
+  eyesUP: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  eyesDOWN: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  eyesLEFT: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  eyesRIGHT: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+  },
+  eye: {
+    width: 3,
+    height: 3,
+    backgroundColor: '#fff',
+    borderRadius: 2,
+    shadowColor: '#00F0FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
 });

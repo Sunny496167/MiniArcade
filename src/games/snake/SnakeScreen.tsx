@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { GameContainer } from '../../components/shared/GameContainer';
 import { GAMES_REGISTRY } from '../../constants/gamesRegistry';
-import { Direction, SnakeState } from './types';
+import { Direction, SnakeState, BorderMode } from './types';
+import { COLORS } from '../../constants/theme';
 import {
   createInitialSnakeState,
   stepSnake,
@@ -88,6 +89,8 @@ const SnakeGameInner: React.FC<SnakeGameInnerProps> = ({
           snake={snakeState.snake}
           food={snakeState.food}
           bonusFood={snakeState.bonusFood}
+          borderMode={snakeState.borderMode}
+          direction={snakeState.direction}
         />
       </View>
 
@@ -101,7 +104,18 @@ const SnakeGameInner: React.FC<SnakeGameInnerProps> = ({
 export const SnakeScreen: React.FC = () => {
   const gameMetadata = GAMES_REGISTRY.find((g) => g.id === 'snake')!;
 
-  const [snakeState, setSnakeState] = useState<SnakeState>(createInitialSnakeState());
+  const [borderMode, setBorderMode] = useState<BorderMode>('full');
+  const [difficulty, setDifficulty] = useState<'Normal' | 'Fast' | 'Extreme'>('Normal');
+
+  const getSpeedForDifficulty = (diff: string) => {
+    if (diff === 'Extreme') return 70;
+    if (diff === 'Fast') return 100;
+    return 140;
+  };
+
+  const [snakeState, setSnakeState] = useState<SnakeState>(
+    createInitialSnakeState(borderMode, getSpeedForDifficulty(difficulty))
+  );
   const stateRef = useRef(snakeState);
   stateRef.current = snakeState;
 
@@ -109,7 +123,7 @@ export const SnakeScreen: React.FC = () => {
 
   const resetGame = () => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
-    setSnakeState(createInitialSnakeState());
+    setSnakeState(createInitialSnakeState(borderMode, getSpeedForDifficulty(difficulty)));
   };
 
   const handleDirectionChange = useCallback((newDir: Direction) => {
@@ -140,11 +154,52 @@ export const SnakeScreen: React.FC = () => {
       }
     });
 
+  const renderSettingsUI = () => (
+    <View style={styles.settingsContainer}>
+      <Text style={styles.settingLabel}>BORDER MODE</Text>
+      <View style={styles.toggleRow}>
+        {(['full', 'mixed', 'none'] as BorderMode[]).map((mode) => (
+          <TouchableOpacity
+            key={mode}
+            style={[styles.toggleBtn, borderMode === mode && styles.toggleBtnActive]}
+            onPress={() => {
+              setBorderMode(mode);
+              setSnakeState(createInitialSnakeState(mode, getSpeedForDifficulty(difficulty)));
+            }}
+          >
+            <Text style={[styles.toggleBtnText, borderMode === mode && styles.toggleBtnTextActive]}>
+              {mode.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={[styles.settingLabel, { marginTop: 16 }]}>DIFFICULTY</Text>
+      <View style={styles.toggleRow}>
+        {['Normal', 'Fast', 'Extreme'].map((diff: any) => (
+          <TouchableOpacity
+            key={diff}
+            style={[styles.toggleBtn, difficulty === diff && styles.toggleBtnActive]}
+            onPress={() => {
+              setDifficulty(diff);
+              setSnakeState(createInitialSnakeState(borderMode, getSpeedForDifficulty(diff)));
+            }}
+          >
+            <Text style={[styles.toggleBtnText, difficulty === diff && styles.toggleBtnTextActive]}>
+              {diff}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
   return (
     <GameContainer
       game={gameMetadata}
       score={snakeState.score}
       onResetGame={resetGame}
+      settingsUI={renderSettingsUI()}
     >
       {({ gameState, triggerGameOver, triggerShake }) => (
         <SnakeGameInner
@@ -173,5 +228,41 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  settingsContainer: {
+    paddingVertical: 8,
+  },
+  settingLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  toggleBtnActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: '#10B981',
+  },
+  toggleBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  toggleBtnTextActive: {
+    color: '#10B981',
+    fontWeight: '800',
   },
 });

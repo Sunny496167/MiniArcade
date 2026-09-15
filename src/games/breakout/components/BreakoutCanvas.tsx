@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Ball, Paddle, Brick, PowerUp } from '../types';
+import { Ball, Paddle, Brick, PowerUp, Laser } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PADDLE_Y } from '../engine/breakoutEngine';
 import { COLORS } from '../../../constants/theme';
 
@@ -9,6 +9,8 @@ interface BreakoutCanvasProps {
   balls: Ball[];
   bricks: Brick[];
   powerUps: PowerUp[];
+  lasers?: Laser[];
+  paddleLaserActive?: boolean;
 }
 
 export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
@@ -16,6 +18,8 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
   balls,
   bricks,
   powerUps,
+  lasers = [],
+  paddleLaserActive = false,
 }) => {
   return (
     <View style={styles.canvas}>
@@ -32,11 +36,18 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
                 top: brick.y,
                 width: brick.width,
                 height: brick.height,
-                backgroundColor: brick.color,
+                backgroundColor: brick.type === 4 ? 'transparent' : brick.color,
+                borderColor: brick.color,
+                borderWidth: brick.type === 4 ? 2 : 0,
                 shadowColor: brick.color,
+                opacity: Math.max(0.4, brick.hp / 3),
               },
             ]}
-          />
+          >
+            {brick.type === 5 && (
+              <View style={styles.explosiveCore} />
+            )}
+          </View>
         );
       })}
 
@@ -67,7 +78,25 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
             height: paddle.height,
           },
         ]}
-      />
+      >
+        {paddleLaserActive && (
+          <>
+            <View style={[styles.paddleLaserTip, { left: 4 }]} />
+            <View style={[styles.paddleLaserTip, { right: 4 }]} />
+          </>
+        )}
+      </View>
+
+      {/* Lasers */}
+      {lasers.map((laser, idx) => (
+        <View
+          key={`laser-${idx}`}
+          style={[
+            styles.laser,
+            { left: laser.x - 2, top: laser.y, width: 4, height: 12 }
+          ]}
+        />
+      ))}
 
       {/* Balls */}
       {balls.map((ball, idx) => (
@@ -142,5 +171,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.9,
     shadowRadius: 8,
     elevation: 4,
+  },
+  explosiveCore: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 2,
+  },
+  laser: {
+    position: 'absolute',
+    backgroundColor: '#FF0055',
+    shadowColor: '#FF0055',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  paddleLaserTip: {
+    position: 'absolute',
+    top: -4,
+    width: 6,
+    height: 8,
+    backgroundColor: '#FF0055',
+    borderRadius: 2,
+    shadowColor: '#FF0055',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
   },
 });

@@ -1,10 +1,10 @@
-import { Direction, Position, FoodItem, SnakeState } from '../types';
+import { Direction, Position, FoodItem, SnakeState, BorderMode } from '../types';
 
 export const GRID_SIZE = 18;
 export const INITIAL_SPEED = 140;
 export const MIN_SPEED = 70;
 
-export const createInitialSnakeState = (): SnakeState => {
+export const createInitialSnakeState = (borderMode: BorderMode = 'full', initialSpeed: number = INITIAL_SPEED): SnakeState => {
   const initialSnake: Position[] = [
     { x: 9, y: 9 },
     { x: 9, y: 10 },
@@ -21,7 +21,8 @@ export const createInitialSnakeState = (): SnakeState => {
     applesEaten: 0,
     bonusEaten: 0,
     isGameOver: false,
-    speed: INITIAL_SPEED,
+    speed: initialSpeed,
+    borderMode,
   };
 };
 
@@ -90,19 +91,38 @@ export function stepSnake(
       break;
   }
 
-  // Check Wall Collision
-  if (
-    newHead.x < 0 ||
-    newHead.x >= GRID_SIZE ||
-    newHead.y < 0 ||
-    newHead.y >= GRID_SIZE
-  ) {
-    return {
-      nextState: { ...state, isGameOver: true },
-      ateNormalFood: false,
-      ateBonusFood: false,
-      hitWallOrSelf: true,
-    };
+  // Handle Border Wrap or Collision
+  const isOutOfBoundsX = newHead.x < 0 || newHead.x >= GRID_SIZE;
+  const isOutOfBoundsY = newHead.y < 0 || newHead.y >= GRID_SIZE;
+
+  if (isOutOfBoundsX || isOutOfBoundsY) {
+    let hitWall = false;
+
+    if (state.borderMode === 'full') {
+      hitWall = true;
+    } else if (state.borderMode === 'mixed') {
+      if (isOutOfBoundsX) {
+        hitWall = true;
+      } else {
+        if (newHead.y < 0) newHead.y = GRID_SIZE - 1;
+        else if (newHead.y >= GRID_SIZE) newHead.y = 0;
+      }
+    } else if (state.borderMode === 'none') {
+      if (newHead.x < 0) newHead.x = GRID_SIZE - 1;
+      else if (newHead.x >= GRID_SIZE) newHead.x = 0;
+      
+      if (newHead.y < 0) newHead.y = GRID_SIZE - 1;
+      else if (newHead.y >= GRID_SIZE) newHead.y = 0;
+    }
+
+    if (hitWall) {
+      return {
+        nextState: { ...state, isGameOver: true },
+        ateNormalFood: false,
+        ateBonusFood: false,
+        hitWallOrSelf: true,
+      };
+    }
   }
 
   // Check Self Collision (except the tail which will move away unless growing)

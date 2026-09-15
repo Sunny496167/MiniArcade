@@ -102,7 +102,7 @@ export const GAMES_REGISTRY: GameMetadata[] = [
   },
   {
     id: 'tictactoe',
-    title: 'Cyber Tic-Tac-Toe',
+    title: 'Tic-Tac-Toe',
     tagline: 'Neural network grid warfare',
     description: 'Clash in holographic 3x3 combat against an adaptable neural AI engine or challenge a friend in local cyber pass-and-play duel mode.',
     category: 'strategy',

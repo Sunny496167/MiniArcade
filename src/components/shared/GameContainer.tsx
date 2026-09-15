@@ -21,6 +21,7 @@ interface GameContainerProps {
   timer?: number | string;
   moves?: number;
   combo?: number;
+  settingsUI?: ReactNode;
   onResetGame: () => void;
   children: (props: {
     gameState: GameLifecycleState;
@@ -36,6 +37,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
   timer,
   moves,
   combo,
+  settingsUI,
   onResetGame,
   children,
 }) => {
@@ -161,6 +163,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
           <Animated.View style={styles.fullSpace} entering={FadeIn.duration(400)}>
             <GameIntro
               game={game}
+              settingsUI={settingsUI}
               onPlay={handleStartCountdown}
               onBack={() => router.back()}
             />

@@ -46,7 +46,7 @@ const CHALLENGE_POOL: Omit<DailyChallenge, 'id' | 'date' | 'currentValue' | 'com
   },
   {
     title: 'Cyber Duel Domination',
-    description: 'Win a match against AI in Cyber Tic-Tac-Toe.',
+    description: 'Win a match against AI in Tic-Tac-Toe.',
     gameId: 'tictactoe',
     targetMetric: 'win',
     targetValue: 1,

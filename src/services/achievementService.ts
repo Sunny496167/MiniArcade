@@ -106,7 +106,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'tactician_unbeatable',
     title: 'Neural Overlord',
-    description: 'Defeat or tie the Unbeatable Minimax AI in Cyber Tic-Tac-Toe.',
+    description: 'Defeat or tie the Unbeatable Minimax AI in Tic-Tac-Toe.',
     icon: 'Cpu',
     category: 'strategy',
     xpReward: 200,

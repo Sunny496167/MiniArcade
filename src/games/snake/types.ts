@@ -10,6 +10,8 @@ export interface FoodItem extends Position {
   points: number;
 }
 
+export type BorderMode = 'full' | 'none' | 'mixed';
+
 export interface SnakeState {
   snake: Position[];
   direction: Direction;
@@ -21,4 +23,5 @@ export interface SnakeState {
   bonusEaten: number;
   isGameOver: boolean;
   speed: number;
+  borderMode: BorderMode;
 }
