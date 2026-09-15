@@ -96,12 +96,23 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     setLifecycle('PLAYING');
   };
 
-  const handleRestart = () => {
+  // Record a partial play when user exits/restarts mid-game so it shows in Continue Playing
+  const recordPartialPlay = async () => {
+    if (lifecycle === 'PLAYING' || lifecycle === 'PAUSED') {
+      try {
+        await recordGameResult(game.id, score, game.baseXp, false, {});
+      } catch (_) {}
+    }
+  };
+
+  const handleRestart = async () => {
+    await recordPartialPlay();
     onResetGame();
     setLifecycle('COUNTDOWN');
   };
 
-  const handleExitToArcade = () => {
+  const handleExitToArcade = async () => {
+    await recordPartialPlay();
     router.replace('/(tabs)' as any);
   };
 

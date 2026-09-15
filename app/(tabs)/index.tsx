@@ -138,10 +138,16 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.continueTitle}>{game.title}</Text>
                     <View style={styles.continueStats}>
-                      <Trophy size={11} color={COLORS.amber} />
-                      <Text style={styles.continueScore}>
-                        {stats[game.id]?.highScore.toLocaleString() || 0}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Trophy size={11} color={COLORS.amber} />
+                        <Text style={styles.continueScore}>
+                          {stats[game.id]?.highScore.toLocaleString() || 0}
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: 'rgba(0, 240, 255, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 6 }}>
+                        <Text style={{ color: COLORS.cyan, fontSize: 9, fontWeight: '700' }}>+{game.baseXp} XP</Text>
+                      </View>
+                      <View style={{ flex: 1 }} />
                       <View style={styles.continuePlayIcon}>
                         <Play size={10} color="#0B0E14" fill="#0B0E14" />
                       </View>

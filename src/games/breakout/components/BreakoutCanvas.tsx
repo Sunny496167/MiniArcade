@@ -1,5 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ball, Paddle, Brick, PowerUp, Laser } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PADDLE_Y } from '../engine/breakoutEngine';
 import { COLORS } from '../../../constants/theme';
@@ -11,6 +17,7 @@ interface BreakoutCanvasProps {
   powerUps: PowerUp[];
   lasers?: Laser[];
   paddleLaserActive?: boolean;
+  paddleHitCount?: number;
 }
 
 export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
@@ -20,7 +27,24 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
   powerUps,
   lasers = [],
   paddleLaserActive = false,
+  paddleHitCount = 0,
 }) => {
+  const paddleShakeX = useSharedValue(0);
+
+  useEffect(() => {
+    if (paddleHitCount === 0) return;
+    paddleShakeX.value = withSequence(
+      withTiming(-6, { duration: 35 }),
+      withTiming(6, { duration: 35 }),
+      withTiming(-4, { duration: 30 }),
+      withTiming(4, { duration: 30 }),
+      withTiming(0, { duration: 25 })
+    );
+  }, [paddleHitCount]);
+
+  const paddleAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: paddleShakeX.value }],
+  }));
   return (
     <View style={styles.canvas}>
       {/* Bricks */}
@@ -68,7 +92,7 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
       ))}
 
       {/* Paddle */}
-      <View
+      <Animated.View
         style={[
           styles.paddle,
           {
@@ -77,6 +101,7 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
             width: paddle.width,
             height: paddle.height,
           },
+          paddleAnimStyle,
         ]}
       >
         {paddleLaserActive && (
@@ -85,7 +110,7 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
             <View style={[styles.paddleLaserTip, { right: 4 }]} />
           </>
         )}
-      </View>
+      </Animated.View>
 
       {/* Lasers */}
       {lasers.map((laser, idx) => (

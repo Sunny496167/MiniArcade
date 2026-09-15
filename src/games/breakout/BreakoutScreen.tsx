@@ -24,6 +24,8 @@ interface BreakoutGameInnerProps {
   setState: React.Dispatch<React.SetStateAction<BreakoutState>>;
   stateRef: React.MutableRefObject<BreakoutState>;
   animationFrameRef: React.MutableRefObject<number | null>;
+  paddleHitCount: number;
+  setPaddleHitCount: React.Dispatch<React.SetStateAction<number>>;
   composedGesture: any;
 }
 
@@ -35,6 +37,8 @@ const BreakoutGameInner: React.FC<BreakoutGameInnerProps> = ({
   setState,
   stateRef,
   animationFrameRef,
+  paddleHitCount,
+  setPaddleHitCount,
   composedGesture,
 }) => {
   useEffect(() => {
@@ -66,7 +70,7 @@ const BreakoutGameInner: React.FC<BreakoutGameInnerProps> = ({
         if (paddleHit) {
           audioService.play('buttonPress');
           hapticsService.light();
-          triggerShake('light');
+          setPaddleHitCount((c) => c + 1);
         }
 
         if (powerUpCollected) {
@@ -115,6 +119,7 @@ const BreakoutGameInner: React.FC<BreakoutGameInnerProps> = ({
           powerUps={state.powerUps}
           lasers={state.lasers}
           paddleLaserActive={state.powerUpActive.laser > 0}
+          paddleHitCount={paddleHitCount}
         />
       </View>
       </View>
@@ -131,6 +136,7 @@ export const BreakoutScreen: React.FC = () => {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  const [paddleHitCount, setPaddleHitCount] = useState(0);
   const animationFrameRef = useRef<number | null>(null);
 
   const resetGame = () => {
@@ -212,6 +218,8 @@ export const BreakoutScreen: React.FC = () => {
           setState={setState}
           stateRef={stateRef}
           animationFrameRef={animationFrameRef}
+          paddleHitCount={paddleHitCount}
+          setPaddleHitCount={setPaddleHitCount}
           composedGesture={composedGesture}
         />
       )}
