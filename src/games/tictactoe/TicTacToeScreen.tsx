@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Cpu, RotateCcw, ArrowLeft } from 'lucide-react-native';
 import { GameContainer } from '../../components/shared/GameContainer';
 import { GAMES_REGISTRY } from '../../constants/gamesRegistry';
 import { TicTacToeState, AIDifficulty, Player } from './types';
@@ -9,6 +10,8 @@ import {
   getAIMove,
 } from './engine/tictactoeEngine';
 import { TicTacToeGrid } from './components/TicTacToeGrid';
+import { ModeSelector } from './components/ModeSelector';
+import { ResultModal } from './components/ResultModal';
 import { COLORS } from '../../constants/theme';
 import { audioService } from '../../services/audioService';
 import { hapticsService } from '../../services/hapticsService';
@@ -16,14 +19,46 @@ import { hapticsService } from '../../services/hapticsService';
 export const TicTacToeScreen: React.FC = () => {
   const gameMetadata = GAMES_REGISTRY.find((g) => g.id === 'tictactoe')!;
 
+  // ── Phase ──────────────────────────────────────────────────────────────────
+  const [phase, setPhase] = useState<'mode-select' | 'playing'>('mode-select');
+  const [selectedMode, setSelectedMode] = useState<'pvp' | 'vsAI'>('vsAI');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<AIDifficulty>('Unbeatable');
+
+  // ── Game State ─────────────────────────────────────────────────────────────
   const [state, setState] = useState<TicTacToeState>(createInitialTicTacToeState());
   const stateRef = useRef(state);
   stateRef.current = state;
-
   const [isAiThinking, setIsAiThinking] = useState(false);
 
-  const resetGame = () => {
+  // ── Player Names ───────────────────────────────────────────────────────────
+  const xName = selectedMode === 'pvp' ? 'Player X' : 'You (X)';
+  const oName = selectedMode === 'vsAI' ? 'Computer' : 'Player O';
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const calculateScore = (xWins: number, ties: number) => xWins * 100 + ties * 30;
+
+  const handleStartGame = () => {
+    setState({
+      ...createInitialTicTacToeState(),
+      mode: selectedMode,
+      aiDifficulty: selectedDifficulty,
+    });
+    setIsAiThinking(false);
+    setPhase('playing');
+  };
+
+  const handleChangeMode = () => {
     setState(createInitialTicTacToeState());
+    setIsAiThinking(false);
+    setPhase('mode-select');
+  };
+
+  const resetGame = () => {
+    setState({
+      ...createInitialTicTacToeState(),
+      mode: selectedMode,
+      aiDifficulty: selectedDifficulty,
+    });
     setIsAiThinking(false);
   };
 
@@ -38,10 +73,20 @@ export const TicTacToeScreen: React.FC = () => {
     setIsAiThinking(false);
   };
 
-  const calculateScore = (xWins: number, ties: number) => {
-    return xWins * 100 + ties * 30;
-  };
+  // ── Mode Selection Screen ─────────────────────────────────────────────────
+  if (phase === 'mode-select') {
+    return (
+      <ModeSelector
+        selectedMode={selectedMode}
+        selectedDifficulty={selectedDifficulty}
+        onSelectMode={setSelectedMode}
+        onSelectDifficulty={setSelectedDifficulty}
+        onStart={handleStartGame}
+      />
+    );
+  }
 
+  // ── Gameplay Screen ────────────────────────────────────────────────────────
   return (
     <GameContainer
       game={gameMetadata}
@@ -49,23 +94,20 @@ export const TicTacToeScreen: React.FC = () => {
       onResetGame={resetGame}
     >
       {({ gameState, triggerGameOver }) => {
-        // Handle Cell Press
+        // ── Handle Cell Press ─────────────────────────────────────────────
         const handleCellPress = (index: number) => {
           if (
             gameState !== 'PLAYING' ||
             state.board[index] !== null ||
             state.winner !== null ||
             isAiThinking
-          ) {
-            return;
-          }
+          ) return;
 
           audioService.play('pointScore');
           hapticsService.light();
 
           const newBoard = [...state.board];
           newBoard[index] = state.currentPlayer;
-
           const { winner, line } = checkWinner(newBoard);
 
           if (winner) {
@@ -74,14 +116,9 @@ export const TicTacToeScreen: React.FC = () => {
           }
 
           const nextPlayer: Player = state.currentPlayer === 'X' ? 'O' : 'X';
+          setState((prev) => ({ ...prev, board: newBoard, currentPlayer: nextPlayer }));
 
-          setState((prev) => ({
-            ...prev,
-            board: newBoard,
-            currentPlayer: nextPlayer,
-          }));
-
-          // Trigger AI Move if single player
+          // Trigger AI move if in vsAI mode
           if (state.mode === 'vsAI' && nextPlayer === 'O') {
             setIsAiThinking(true);
             setTimeout(() => {
@@ -89,26 +126,21 @@ export const TicTacToeScreen: React.FC = () => {
               if (aiIdx !== -1) {
                 audioService.play('buttonPress');
                 hapticsService.medium();
-
                 const aiBoard = [...newBoard];
                 aiBoard[aiIdx] = 'O';
                 const aiResult = checkWinner(aiBoard);
-
                 if (aiResult.winner) {
                   handleRoundEnd(aiResult.winner, aiResult.line, aiBoard);
                 } else {
-                  setState((prev) => ({
-                    ...prev,
-                    board: aiBoard,
-                    currentPlayer: 'X',
-                  }));
+                  setState((prev) => ({ ...prev, board: aiBoard, currentPlayer: 'X' }));
                 }
               }
               setIsAiThinking(false);
-            }, 450);
+            }, 580);
           }
         };
 
+        // ── Handle Round End ───────────────────────────────────────────────
         const handleRoundEnd = (
           winner: Player | 'TIE',
           line: number[] | null,
@@ -129,6 +161,7 @@ export const TicTacToeScreen: React.FC = () => {
           } else {
             newTies++;
             audioService.play('buttonPress');
+            hapticsService.light();
           }
 
           setState((prev) => ({
@@ -142,111 +175,157 @@ export const TicTacToeScreen: React.FC = () => {
           }));
 
           const totalRounds = newXWins + newOWins + newTies;
-          // Trigger game over after match conclusion or 3 rounds
           if (totalRounds >= 3) {
             const finalScore = calculateScore(newXWins, newTies);
             const playerWon = newXWins > newOWins;
-
             setTimeout(() => {
               triggerGameOver(finalScore, playerWon, [
-                { label: 'Player Victories', value: newXWins, isHighlight: true },
-                { label: 'AI Victories', value: newOWins },
+                { label: 'Your Victories', value: newXWins, isHighlight: true },
+                {
+                  label: state.mode === 'vsAI' ? 'AI Victories' : 'Opponent Wins',
+                  value: newOWins,
+                },
                 { label: 'Ties', value: newTies },
-                { label: 'AI Engine', value: state.aiDifficulty },
+                {
+                  label: 'Mode',
+                  value: state.mode === 'vsAI' ? `AI · ${state.aiDifficulty}` : 'Local PvP',
+                },
               ]);
-            }, 1200);
+            }, 1400);
           }
         };
 
-        const changeDifficulty = (diff: AIDifficulty) => {
-          hapticsService.light();
-          audioService.play('buttonPress');
-          setState((prev) => ({ ...prev, aiDifficulty: diff }));
-        };
+        const totalRounds = state.xWins + state.oWins + state.ties;
+        const isMatchOver = totalRounds >= 3;
 
         return (
           <View style={styles.container}>
-            {/* Mode & Difficulty Selector */}
-            <View style={styles.diffRow}>
-              {(['Casual', 'Pro', 'Unbeatable'] as AIDifficulty[]).map((diff) => (
-                <TouchableOpacity
-                  key={diff}
-                  onPress={() => changeDifficulty(diff)}
-                  style={[
-                    styles.diffBtn,
-                    state.aiDifficulty === diff && styles.diffBtnActive,
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.diffBtnText,
-                      state.aiDifficulty === diff && styles.diffBtnTextActive,
-                    ]}
-                  >
-                    {diff.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Scorecard */}
+            {/* ── Score Panel ──────────────────────────────────────────────── */}
             <View style={styles.scorecard}>
-              <View style={styles.scoreItem}>
-                <Text style={styles.playerLabel}>YOU (X)</Text>
-                <Text style={styles.playerScore}>{state.xWins}</Text>
+              {/* X Player */}
+              <View
+                style={[
+                  styles.scoreSide,
+                  state.currentPlayer === 'X' && !state.winner && styles.scoreSideActiveX,
+                ]}
+              >
+                {state.currentPlayer === 'X' && !state.winner && !isAiThinking && (
+                  <View style={[styles.activeDot, styles.activeDotX]} />
+                )}
+                <Text style={styles.xLabel} numberOfLines={1}>{xName.toUpperCase()}</Text>
+                <Text style={styles.xScore}>{state.xWins}</Text>
               </View>
 
-              <View style={styles.scoreItem}>
+              {/* Ties */}
+              <View style={styles.scoreCenter}>
                 <Text style={styles.tieLabel}>TIES</Text>
                 <Text style={styles.tieScore}>{state.ties}</Text>
               </View>
 
-              <View style={styles.scoreItem}>
-                <Text style={styles.aiLabel}>AI (O)</Text>
-                <Text style={styles.aiScore}>{state.oWins}</Text>
+              {/* O Player */}
+              <View
+                style={[
+                  styles.scoreSide,
+                  state.currentPlayer === 'O' && !state.winner && styles.scoreSideActiveO,
+                ]}
+              >
+                {state.currentPlayer === 'O' && !state.winner && (
+                  <View style={[styles.activeDot, styles.activeDotO]} />
+                )}
+                <Text style={styles.oLabel} numberOfLines={1}>{oName.toUpperCase()}</Text>
+                <Text style={styles.oScore}>{state.oWins}</Text>
               </View>
             </View>
 
-            {/* Turn Status */}
-            <View style={styles.turnStatus}>
-              {state.winner ? (
-                <Text style={styles.turnText}>
-                  {state.winner === 'TIE'
-                    ? 'STALEMATE TIE!'
-                    : `${state.winner === 'X' ? 'YOU WON!' : 'AI WON!'}`}
-                </Text>
-              ) : (
-                <Text style={styles.turnText}>
-                  {isAiThinking
-                    ? 'NEURAL AI CALCULATING...'
-                    : `CURRENT TURN: ${state.currentPlayer === 'X' ? 'YOU (X)' : 'AI (O)'}`}
-                </Text>
-              )}
+            {/* ── Turn Banner ───────────────────────────────────────────────── */}
+            <View style={styles.turnBannerWrapper}>
+              {isAiThinking ? (
+                <View style={[styles.turnPill, styles.turnPillAi]}>
+                  <Cpu size={13} color={COLORS.purple} />
+                  <Text style={[styles.turnPillText, { color: COLORS.purple }]}>
+                    Computer is thinking…
+                  </Text>
+                </View>
+              ) : !state.winner ? (
+                <View
+                  style={[
+                    styles.turnPill,
+                    state.currentPlayer === 'X' ? styles.turnPillX : styles.turnPillO,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.turnPillText,
+                      {
+                        color:
+                          state.currentPlayer === 'X' ? COLORS.cyan : COLORS.magenta,
+                      },
+                    ]}
+                  >
+                    {state.currentPlayer === 'X'
+                      ? `${xName}'s turn`
+                      : `${oName}'s turn`}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
-            {/* 3x3 Grid */}
+            {/* ── Game Board ────────────────────────────────────────────────── */}
             <View style={styles.gridWrapper}>
               <TicTacToeGrid
                 board={state.board}
                 winningLine={state.winningLine}
                 onCellPress={handleCellPress}
-                disabled={state.winner !== null || isAiThinking}
+                disabled={
+                  state.winner !== null ||
+                  isAiThinking ||
+                  gameState !== 'PLAYING'
+                }
               />
             </View>
 
-            {/* Round Next CTA if finished round */}
-            {state.winner && (
+            {/* ── Footer Controls ───────────────────────────────────────────── */}
+            <View style={styles.footer}>
               <TouchableOpacity
-                style={styles.nextRoundBtn}
-                onPress={startNextRound}
-                activeOpacity={0.8}
+                style={styles.footerBtn}
+                onPress={() => {
+                  hapticsService.light();
+                  audioService.play('buttonPress');
+                  resetGame();
+                }}
+                activeOpacity={0.7}
               >
-                <Text style={styles.nextRoundText}>NEXT ROUND</Text>
+                <RotateCcw size={13} color={COLORS.textMuted} />
+                <Text style={styles.footerBtnText}>New Game</Text>
               </TouchableOpacity>
-            )}
 
-            <View style={{ height: 10 }} />
+              <TouchableOpacity
+                style={styles.footerBtn}
+                onPress={() => {
+                  hapticsService.light();
+                  audioService.play('buttonPress');
+                  handleChangeMode();
+                }}
+                activeOpacity={0.7}
+              >
+                <ArrowLeft size={13} color={COLORS.textMuted} />
+                <Text style={styles.footerBtnText}>Change Mode</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Result Bottom Sheet ────────────────────────────────────────── */}
+            <ResultModal
+              visible={state.winner !== null && gameState !== 'RESULT'}
+              winner={state.winner}
+              xName={xName}
+              oName={oName}
+              xWins={state.xWins}
+              oWins={state.oWins}
+              ties={state.ties}
+              isMatchOver={isMatchOver}
+              onNextRound={startNextRound}
+              onChangeMode={handleChangeMode}
+            />
           </View>
         );
       }}
@@ -257,107 +336,154 @@ export const TicTacToeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingVertical: 14,
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
   },
-  diffRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  diffBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  diffBtnActive: {
-    backgroundColor: 'rgba(0, 240, 255, 0.15)',
-    borderColor: COLORS.cyan,
-  },
-  diffBtnText: {
-    color: COLORS.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  diffBtnTextActive: {
-    color: COLORS.cyan,
-  },
+
+  // ── Scorecard ──────────────────────────────────────────────────────────────
   scorecard: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     backgroundColor: COLORS.bgCard,
-    paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginTop: 10,
+    overflow: 'hidden',
   },
-  scoreItem: {
+  scoreSide: {
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    position: 'relative',
   },
-  playerLabel: {
+  scoreSideActiveX: {
+    backgroundColor: 'rgba(0, 240, 255, 0.07)',
+  },
+  scoreSideActiveO: {
+    backgroundColor: 'rgba(255, 0, 122, 0.07)',
+  },
+  activeDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    top: 8,
+  },
+  activeDotX: {
+    backgroundColor: COLORS.cyan,
+    left: 8,
+  },
+  activeDotO: {
+    backgroundColor: COLORS.magenta,
+    right: 8,
+  },
+  xLabel: {
     color: COLORS.cyan,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  playerScore: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  tieLabel: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  tieScore: {
-    color: COLORS.textMuted,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  aiLabel: {
-    color: COLORS.magenta,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  aiScore: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  turnStatus: {
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  turnText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  xScore: {
+    color: COLORS.textPrimary,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  scoreCenter: {
+    width: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tieLabel: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tieScore: {
+    color: COLORS.textMuted,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  oLabel: {
+    color: COLORS.magenta,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  oScore: {
+    color: COLORS.textPrimary,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+
+  // ── Turn Banner ────────────────────────────────────────────────────────────
+  turnBannerWrapper: {
+    alignItems: 'center',
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  turnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  turnPillX: {
+    backgroundColor: 'rgba(0, 240, 255, 0.08)',
+    borderColor: 'rgba(0, 240, 255, 0.3)',
+  },
+  turnPillO: {
+    backgroundColor: 'rgba(255, 0, 122, 0.08)',
+    borderColor: 'rgba(255, 0, 122, 0.3)',
+  },
+  turnPillAi: {
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+  },
+  turnPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+
+  // ── Grid ───────────────────────────────────────────────────────────────────
   gridWrapper: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  nextRoundBtn: {
-    backgroundColor: COLORS.cyan,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
+
+  // ── Footer ─────────────────────────────────────────────────────────────────
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  nextRoundText: {
-    color: '#0B0E14',
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  footerBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  footerBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
