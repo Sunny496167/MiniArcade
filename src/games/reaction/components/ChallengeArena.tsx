@@ -27,13 +27,13 @@ interface ChallengeArenaProps {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export const ChallengeArena: React.FC<ChallengeArenaProps> = ({
+export const ChallengeArena = ({
   state,
   onPressIn,
   onPressOut,
   onRetry,
   onNextTrial,
-}) => {
+}: ChallengeArenaProps) => {
   const pulseAnim = useSharedValue(1);
   const ringAnim = useSharedValue(1);
   const ringOpacity = useSharedValue(0.5);

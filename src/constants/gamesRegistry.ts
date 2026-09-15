@@ -118,6 +118,26 @@ export const GAMES_REGISTRY: GameMetadata[] = [
       'Master the Unbeatable Minimax AI to prove strategic superiority.'
     ],
     controlsDescription: 'Tap cell to place marker'
+  },
+  {
+    id: 'snakeLadder',
+    title: 'Neon Chutes & Ladders',
+    tagline: 'Cybernetic board game escalation',
+    description: 'Race against the AI on a neon grid. Climb cyber-ladders to escalate rapidly, but beware the glitch-snakes that will drop you back down.',
+    category: 'classic',
+    difficulty: 'Easy',
+    iconName: 'Dices',
+    accentColor: COLORS.amber,
+    secondaryColor: COLORS.rose,
+    baseXp: 100,
+    isNew: true,
+    howToPlay: [
+      'Roll the dice to move your token across the board.',
+      'Land exactly on the base of a ladder to climb up quickly.',
+      'Avoid landing on a snake head, or you will slide down to its tail.',
+      'First to reach the final square wins the match!'
+    ],
+    controlsDescription: 'Tap to roll the dice'
   }
 ];
 
