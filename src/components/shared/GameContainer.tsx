@@ -1,5 +1,6 @@
 import React, { useState, ReactNode } from 'react';
-import { View, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { GameMetadata, GameLifecycleState, GameContextualStat, GameResultData } from '../../types/arcade';
