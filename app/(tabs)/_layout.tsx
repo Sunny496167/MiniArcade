@@ -1,12 +1,19 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Platform, View, StyleSheet } from 'react-native';
 import { Home, Gamepad2, Trophy, User } from 'lucide-react-native';
 import { COLORS } from '../../src/constants/theme';
 import { audioService } from '../../src/services/audioService';
 import { hapticsService } from '../../src/services/hapticsService';
+import { useArcade } from '../../src/context/ArcadeContext';
 
 export default function TabsLayout() {
+  const { profile } = useArcade();
+
+  if (!profile.hasOnboarded) {
+    return <Redirect href="/onboarding" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

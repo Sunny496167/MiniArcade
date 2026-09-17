@@ -39,6 +39,7 @@ export interface PlayerProfile {
   totalPlayTimeSeconds: number;
   gamesPlayed: number;
   gamesWon: number;
+  hasOnboarded: boolean;
 }
 
 export interface Achievement {

@@ -5,7 +5,7 @@ const PROFILE_STORAGE_KEY = '@mini_arcade_player_profile';
 const STATS_STORAGE_KEY = '@mini_arcade_game_stats';
 
 const DEFAULT_PROFILE: PlayerProfile = {
-  username: 'CyberRunner',
+  username: '',
   avatarSeed: 'neon_rider',
   level: 1,
   currentXp: 0,
@@ -16,6 +16,7 @@ const DEFAULT_PROFILE: PlayerProfile = {
   totalPlayTimeSeconds: 0,
   gamesPlayed: 0,
   gamesWon: 0,
+  hasOnboarded: false,
 };
 
 class ProgressionService {
@@ -26,10 +27,17 @@ class ProgressionService {
   async init(): Promise<PlayerProfile> {
     if (this.initialized) return this.profile;
 
-    this.profile = await storageService.getItem<PlayerProfile>(
+    const loadedProfile = await storageService.getItem<PlayerProfile>(
       PROFILE_STORAGE_KEY,
       DEFAULT_PROFILE
     );
+
+    // Backwards compatibility: if it's an existing profile without hasOnboarded, they are already onboarded.
+    if (loadedProfile.username && loadedProfile.hasOnboarded === undefined) {
+      loadedProfile.hasOnboarded = true;
+    }
+    
+    this.profile = loadedProfile;
 
     this.statsMap = await storageService.getItem<Record<string, GameStats>>(
       STATS_STORAGE_KEY,
@@ -64,6 +72,12 @@ class ProgressionService {
 
   getProfile(): PlayerProfile {
     return { ...this.profile };
+  }
+
+  async completeOnboarding(username: string): Promise<void> {
+    this.profile.username = username;
+    this.profile.hasOnboarded = true;
+    await this.saveProfile();
   }
 
   getGameStats(gameId: string): GameStats {

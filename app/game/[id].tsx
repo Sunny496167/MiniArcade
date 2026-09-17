@@ -9,6 +9,8 @@ import { MinesweeperScreen } from '../../src/games/minesweeper/MinesweeperScreen
 import { SpeedReflexScreen } from '../../src/games/reaction/SpeedReflexScreen';
 import { TicTacToeScreen } from '../../src/games/tictactoe/TicTacToeScreen';
 import { SnakeLadderScreen } from '../../src/games/snakeLadder/SnakeLadderScreen';
+import { MemoryScreen } from '../../src/games/memory/MemoryScreen';
+import { SimonScreen } from '../../src/games/simon/SimonScreen';
 import { COLORS } from '../../src/constants/theme';
 
 export default function GameHostScreen() {
@@ -40,6 +42,10 @@ export default function GameHostScreen() {
       return <TicTacToeScreen />;
     case 'snakeLadder':
       return <SnakeLadderScreen />;
+    case 'memory':
+      return <MemoryScreen />;
+    case 'simon':
+      return <SimonScreen />;
     default:
       return (
         <View style={styles.errorContainer}>

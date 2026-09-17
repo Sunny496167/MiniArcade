@@ -45,6 +45,7 @@ interface ArcadeContextType {
   }>;
   refreshDailyChallenge: () => Promise<void>;
   resetAllData: () => Promise<void>;
+  completeOnboarding: (username: string) => Promise<void>;
 }
 
 const ArcadeContext = createContext<ArcadeContextType | null>(null);
@@ -109,6 +110,11 @@ export const ArcadeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const updateUsername = async (name: string) => {
     await progressionService.updateUsername(name);
+    setProfile(progressionService.getProfile());
+  };
+
+  const completeOnboarding = async (username: string) => {
+    await progressionService.completeOnboarding(username);
     setProfile(progressionService.getProfile());
   };
 
@@ -205,6 +211,7 @@ export const ArcadeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         dismissLevelUpModal: () => setLevelUpModalData(null),
         updateSettings,
         updateUsername,
+        completeOnboarding,
         recordGameResult,
         refreshDailyChallenge,
         resetAllData,

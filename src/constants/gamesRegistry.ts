@@ -138,6 +138,46 @@ export const GAMES_REGISTRY: GameMetadata[] = [
       'First to reach the final square wins the match!'
     ],
     controlsDescription: 'Tap to roll the dice'
+  },
+  {
+    id: 'memory',
+    title: 'Cyber Recall',
+    tagline: 'Visual memory matching trial',
+    description: 'Decrypt the data matrix by matching identical neural signatures. Flip holographic nodes to find pairs and clear the grid with the fewest possible moves.',
+    category: 'puzzle',
+    difficulty: 'Easy',
+    iconName: 'Cpu',
+    accentColor: COLORS.cyan,
+    secondaryColor: COLORS.purple,
+    baseXp: 120,
+    isNew: true,
+    howToPlay: [
+      'Tap any encrypted node to reveal its core symbol.',
+      'Tap a second node to attempt a match.',
+      'If the symbols are identical, the nodes remain decrypted.',
+      'If they differ, both nodes will encrypt again. Clear the board in minimum moves!'
+    ],
+    controlsDescription: 'Tap nodes to reveal symbols'
+  },
+  {
+    id: 'simon',
+    title: 'Neon Sequence',
+    tagline: 'Auditory and visual pattern recall',
+    description: 'Synchronize with the core mainframe by repeating its complex signal patterns. Watch the neon panels glow, listen to the sequence, and replicate it flawlessly.',
+    category: 'reaction',
+    difficulty: 'Medium',
+    iconName: 'Activity',
+    accentColor: COLORS.magenta,
+    secondaryColor: COLORS.amber,
+    baseXp: 150,
+    isNew: true,
+    howToPlay: [
+      'Observe the mainframe as it plays a sequence of glowing panels.',
+      'Once the sequence finishes, repeat it exactly by tapping the panels.',
+      'Each successful round adds one new panel to the sequence.',
+      'A single mistake terminates the synchronization. Achieve the longest sequence!'
+    ],
+    controlsDescription: 'Tap the glowing panels in order'
   }
 ];
 
