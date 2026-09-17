@@ -51,6 +51,10 @@ export function SimonScreen() {
     startNextRound([]);
   }, [clearTimers]);
 
+  useEffect(() => {
+    initGame();
+  }, [initGame]);
+
   // Handle Playback
   useEffect(() => {
     if (phase === 'PLAYBACK' && sequence.length > 0) {
@@ -84,8 +88,8 @@ export function SimonScreen() {
   return (
     <GameContainer
       game={GAME_METADATA}
-      onStart={initGame}
-      onReset={initGame}
+      score={Math.max(0, sequence.length - 1)}
+      onResetGame={initGame}
       onPause={clearTimers} // Stop playback if paused
     >
       {({ gameState, triggerGameOver }) => {
@@ -119,7 +123,7 @@ export function SimonScreen() {
             // Score = sequence length - 1
             const score = Math.max(0, sequence.length - 1);
             // 150 base XP + 50 for every 3 sequences
-            triggerGameOver(score, false, { 'Sequence Length': score });
+            triggerGameOver(score, false, [{ label: 'Sequence Length', value: score }]);
           }
         };
 
