@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { Position, FoodItem, BorderMode, Direction } from '../types';
+import { Position, FoodItem, BorderMode, Direction, SnakePalette } from '../types';
 import { GRID_SIZE } from '../engine/snakeEngine';
 import { COLORS } from '../../../constants/theme';
 
@@ -10,6 +10,7 @@ interface SnakeBoardProps {
   bonusFood: FoodItem | null;
   borderMode?: BorderMode;
   direction?: Direction;
+  palette?: SnakePalette;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -22,6 +23,7 @@ export const SnakeBoard: React.FC<SnakeBoardProps> = ({
   bonusFood,
   borderMode = 'full',
   direction = 'UP',
+  palette,
 }) => {
   const getAdjacency = (current: Position, other?: Position) => {
     if (!other) return null;
@@ -116,14 +118,16 @@ export const SnakeBoard: React.FC<SnakeBoardProps> = ({
               style={[
                 styles.segmentInner,
                 isHead ? styles.snakeHead : styles.snakeBody,
+                isHead && palette ? { backgroundColor: palette.headColor, shadowColor: palette.glowColor } : null,
+                !isHead && palette ? { backgroundColor: palette.bodyColor } : null,
                 radii,
                 { transform: [{ scale: scaleFactor }] }
               ]}
             >
               {isHead && (
                 <View style={[styles.eyesContainer, styles[`eyes${direction}` as keyof typeof styles]]}>
-                  <View style={styles.eye} />
-                  <View style={styles.eye} />
+                  <View style={[styles.eye, palette?.eyeColor ? { backgroundColor: palette.eyeColor } : null]} />
+                  <View style={[styles.eye, palette?.eyeColor ? { backgroundColor: palette.eyeColor } : null]} />
                 </View>
               )}
             </View>

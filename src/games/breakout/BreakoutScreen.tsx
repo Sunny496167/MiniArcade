@@ -112,16 +112,63 @@ const BreakoutGameInner: React.FC<BreakoutGameInnerProps> = ({
     <GestureDetector gesture={composedGesture}>
       <View style={styles.container}>
         <View style={styles.canvasWrapper}>
-        <BreakoutCanvas
-          paddle={state.paddle}
-          balls={state.balls}
-          bricks={state.bricks}
-          powerUps={state.powerUps}
-          lasers={state.lasers}
-          paddleLaserActive={state.powerUpActive.laser > 0}
-          paddleHitCount={paddleHitCount}
-        />
-      </View>
+          <BreakoutCanvas
+            paddle={state.paddle}
+            balls={state.balls}
+            bricks={state.bricks}
+            powerUps={state.powerUps}
+            lasers={state.lasers}
+            paddleLaserActive={state.powerUpActive.laser > 0}
+            paddleHitCount={paddleHitCount}
+            hasSafetyShield={state.hasSafetyShield}
+          />
+
+          {/* Active Power-up Badges */}
+          <View style={styles.activePowerUpRow}>
+            {state.powerUpActive.fireball > 0 && (
+              <View style={[styles.activePill, { backgroundColor: 'rgba(249, 115, 22, 0.2)', borderColor: '#F97316' }]}>
+                <Text style={[styles.activePillText, { color: '#F97316' }]}>
+                  🔥 FIREBALL ({Math.ceil(state.powerUpActive.fireball / 1000)}s)
+                </Text>
+              </View>
+            )}
+            {state.powerUpActive.megaBall > 0 && (
+              <View style={[styles.activePill, { backgroundColor: 'rgba(168, 85, 247, 0.2)', borderColor: '#A855F7' }]}>
+                <Text style={[styles.activePillText, { color: '#A855F7' }]}>
+                  ⚡ MEGA BALL ({Math.ceil(state.powerUpActive.megaBall / 1000)}s)
+                </Text>
+              </View>
+            )}
+            {state.powerUpActive.slowMo > 0 && (
+              <View style={[styles.activePill, { backgroundColor: 'rgba(59, 130, 246, 0.2)', borderColor: '#3B82F6' }]}>
+                <Text style={[styles.activePillText, { color: '#3B82F6' }]}>
+                  ⏱ SLOW-MO ({Math.ceil(state.powerUpActive.slowMo / 1000)}s)
+                </Text>
+              </View>
+            )}
+            {state.hasSafetyShield && (
+              <View style={[styles.activePill, { backgroundColor: 'rgba(6, 182, 212, 0.2)', borderColor: '#06B6D4' }]}>
+                <Text style={[styles.activePillText, { color: '#06B6D4' }]}>
+                  🛡 SHIELD READY
+                </Text>
+              </View>
+            )}
+            {state.powerUpActive.laser > 0 && (
+              <View style={[styles.activePill, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: '#EF4444' }]}>
+                <Text style={[styles.activePillText, { color: '#EF4444' }]}>
+                  ✦ LASER ({Math.ceil(state.powerUpActive.laser / 1000)}s)
+                </Text>
+              </View>
+            )}
+            {state.powerUpActive.sticky > 0 && (
+              <View style={[styles.activePill, { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10B981' }]}>
+                <Text style={[styles.activePillText, { color: '#10B981' }]}>
+                  STICKY PADDLE
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
       </View>
     </GestureDetector>
   );
@@ -274,5 +321,24 @@ const styles = StyleSheet.create({
   toggleBtnTextActive: {
     color: '#00F0FF',
     fontWeight: '800',
+  },
+  activePowerUpRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    maxWidth: 340,
+  },
+  activePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  activePillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

@@ -32,12 +32,17 @@ class ProgressionService {
       DEFAULT_PROFILE
     );
 
-    // Backwards compatibility: if it's an existing profile without hasOnboarded, they are already onboarded.
-    if (loadedProfile.username && loadedProfile.hasOnboarded === undefined) {
-      loadedProfile.hasOnboarded = true;
+    const mergedProfile: PlayerProfile = {
+      ...DEFAULT_PROFILE,
+      ...loadedProfile,
+    };
+
+    // If a username exists and is at least 3 characters, they have already completed onboarding
+    if (mergedProfile.username && mergedProfile.username.trim().length >= 3) {
+      mergedProfile.hasOnboarded = true;
     }
     
-    this.profile = loadedProfile;
+    this.profile = mergedProfile;
 
     this.statsMap = await storageService.getItem<Record<string, GameStats>>(
       STATS_STORAGE_KEY,
@@ -184,6 +189,53 @@ class ProgressionService {
 
   private async saveProfile() {
     await storageService.setItem(PROFILE_STORAGE_KEY, this.profile);
+  }
+
+  async getCampaignProgress(gameId: string): Promise<{
+    maxUnlockedLevel: number;
+    stars: Record<number, number>;
+    levelScores: Record<number, number>;
+  }> {
+    const key = `@mini_arcade_campaign_${gameId}`;
+    return await storageService.getItem(key, {
+      maxUnlockedLevel: 1,
+      stars: {},
+      levelScores: {},
+    });
+  }
+
+  async saveCampaignLevelResult(
+    gameId: string,
+    completedLevel: number,
+    starsEarned: number,
+    score: number
+  ): Promise<{
+    maxUnlockedLevel: number;
+    stars: Record<number, number>;
+    levelScores: Record<number, number>;
+  }> {
+    const key = `@mini_arcade_campaign_${gameId}`;
+    const current = await this.getCampaignProgress(gameId);
+
+    const prevStars = current.stars[completedLevel] || 0;
+    const prevScore = current.levelScores[completedLevel] || 0;
+
+    const nextUnlocked = Math.max(current.maxUnlockedLevel, completedLevel + 1);
+
+    const updated = {
+      maxUnlockedLevel: nextUnlocked,
+      stars: {
+        ...current.stars,
+        [completedLevel]: Math.max(prevStars, starsEarned),
+      },
+      levelScores: {
+        ...current.levelScores,
+        [completedLevel]: Math.max(prevScore, score),
+      },
+    };
+
+    await storageService.setItem(key, updated);
+    return updated;
   }
 
   async resetAllData() {

@@ -11,7 +11,7 @@ import {
   TouchableWithoutFeedback,
   Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -19,12 +19,12 @@ import Animated, {
   withSpring,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
   withRepeat,
   withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Sparkles } from 'lucide-react-native';
 import { COLORS, FONTS, SHADOWS } from '../src/constants/theme';
 import { useArcade } from '../src/context/ArcadeContext';
 import { hapticsService } from '../src/services/hapticsService';
@@ -32,9 +32,18 @@ import { audioService } from '../src/services/audioService';
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { completeOnboarding } = useArcade();
+  const { profile, completeOnboarding, isLoading } = useArcade();
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState('');
+
+  if (isLoading) {
+    return null;
+  }
+
+  const hasName = Boolean(profile.username && profile.username.trim().length >= 3);
+  if (profile.hasOnboarded && hasName) {
+    return <Redirect href="/" />;
+  }
   
   // Animation values for the logo pulse
   const logoScale = useSharedValue(1);

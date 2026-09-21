@@ -178,6 +178,66 @@ export const GAMES_REGISTRY: GameMetadata[] = [
       'A single mistake terminates the synchronization. Achieve the longest sequence!'
     ],
     controlsDescription: 'Tap the glowing panels in order'
+  },
+  {
+    id: 'pokeman',
+    title: 'Pac-Man',
+    tagline: 'Retro cyber chomper & maze chase',
+    description: 'Guide Pac-Man through 30 progressive neon mazes. Chomp all pac-dots, consume power energizers to devour ghosts, and grab fruit bonuses!',
+    category: 'arcade',
+    difficulty: 'Medium',
+    iconName: 'Ghost',
+    accentColor: '#FACC15',
+    secondaryColor: COLORS.cyan,
+    baseXp: 160,
+    isNew: true,
+    howToPlay: [
+      'Swipe or use the on-screen Cyber D-Pad to turn Pac-Man.',
+      'Chomp all dots in the maze while evading Blinky, Pinky, Inky, and Clyde.',
+      'Eat glowing Energizers to turn ghosts blue and chomp them for up to 1600 bonus pts!',
+      'Use the side warp tunnels to escape tight ghost pursuits!'
+    ],
+    controlsDescription: 'Swipe or tap D-Pad to steer Pac-Man'
+  },
+  {
+    id: 'bubble',
+    title: 'Bubble Shooter Arcade',
+    tagline: 'Hex-grid tactical bubble popping frenzy',
+    description: 'Aim, bank shots off walls, and burst match-3 bubble clusters across 30 progressive challenge stages.',
+    category: 'puzzle',
+    difficulty: 'Medium',
+    iconName: 'Orbit',
+    accentColor: COLORS.cyan,
+    secondaryColor: COLORS.magenta,
+    baseXp: 150,
+    isNew: true,
+    howToPlay: [
+      'Touch and drag to align the laser trajectory guide.',
+      'Bounce bubbles off the side walls to hit difficult angles.',
+      'Match 3 or more bubbles of identical color to burst them.',
+      'Drop detached ceiling clusters for massive avalanche score multipliers!'
+    ],
+    controlsDescription: 'Touch & drag to aim, release to launch bubble'
+  },
+  {
+    id: 'galaxy',
+    title: 'Galaxy Sky Shooting',
+    tagline: 'Retro space shooter and bullet-hell warfare',
+    description: 'Maneuver your neon starship through 30 intense sectors with 6 dreadnought boss flagships and weapon upgrades.',
+    category: 'arcade',
+    difficulty: 'Hard',
+    iconName: 'Rocket',
+    accentColor: COLORS.cyan,
+    secondaryColor: COLORS.rose,
+    baseXp: 180,
+    isNew: true,
+    howToPlay: [
+      'Touch and drag anywhere to pilot your neon starship.',
+      'Auto-fire blasters automatically engage incoming hostile squadrons.',
+      'Collect glowing power-up capsules: Spread (P), Shield (S), Bomb (B), Laser (L).',
+      'Deploy Smart Bombs to vaporize bullet-hell barrages during boss battles!'
+    ],
+    controlsDescription: '1:1 finger drag to steer, tap bomb button to clear screen'
   }
 ];
 

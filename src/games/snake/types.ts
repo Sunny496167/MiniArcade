@@ -12,6 +12,15 @@ export interface FoodItem extends Position {
 
 export type BorderMode = 'full' | 'none' | 'mixed';
 
+export interface SnakePalette {
+  id: string;
+  name: string;
+  headColor: string;
+  bodyColor: string;
+  glowColor: string;
+  eyeColor?: string;
+}
+
 export interface SnakeState {
   snake: Position[];
   direction: Direction;
@@ -24,4 +33,6 @@ export interface SnakeState {
   isGameOver: boolean;
   speed: number;
   borderMode: BorderMode;
+  palette?: SnakePalette;
 }
+

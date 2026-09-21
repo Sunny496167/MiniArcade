@@ -5,6 +5,8 @@ export interface Ball {
   vy: number;
   radius: number;
   isSticky?: boolean; // If caught by sticky paddle
+  isFireball?: boolean; // Pierces all bricks without bouncing
+  isMegaBall?: boolean; // Giant size ball
 }
 
 export interface Paddle {
@@ -27,7 +29,15 @@ export interface Brick {
   hp: number;
 }
 
-export type PowerUpType = 'widePaddle' | 'multiBall' | 'laser' | 'sticky';
+export type PowerUpType =
+  | 'widePaddle'
+  | 'multiBall'
+  | 'laser'
+  | 'sticky'
+  | 'fireball'
+  | 'megaBall'
+  | 'shield'
+  | 'slowMo';
 
 export interface PowerUp {
   id: string;
@@ -62,5 +72,10 @@ export interface BreakoutState {
   powerUpActive: {
     laser: number; // Duration left
     sticky: number; // Duration left
+    fireball: number; // Duration left
+    megaBall: number; // Duration left
+    slowMo: number; // Duration left
   };
+  hasSafetyShield?: boolean;
 }
+

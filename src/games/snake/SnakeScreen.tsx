@@ -12,6 +12,7 @@ import {
 } from './engine/snakeEngine';
 import { SnakeBoard } from './components/SnakeBoard';
 import { SnakeControls } from './components/SnakeControls';
+import { getRandomSnakePalette, SNAKE_PALETTES } from './constants/palettes';
 import { audioService } from '../../services/audioService';
 import { hapticsService } from '../../services/hapticsService';
 
@@ -91,6 +92,7 @@ const SnakeGameInner: React.FC<SnakeGameInnerProps> = ({
           bonusFood={snakeState.bonusFood}
           borderMode={snakeState.borderMode}
           direction={snakeState.direction}
+          palette={snakeState.palette}
         />
       </View>
 
@@ -106,6 +108,7 @@ export const SnakeScreen: React.FC = () => {
 
   const [borderMode, setBorderMode] = useState<BorderMode>('full');
   const [difficulty, setDifficulty] = useState<'Normal' | 'Fast' | 'Extreme'>('Normal');
+  const [currentPalette, setCurrentPalette] = useState(getRandomSnakePalette());
 
   const getSpeedForDifficulty = (diff: string) => {
     if (diff === 'Extreme') return 70;
@@ -113,9 +116,10 @@ export const SnakeScreen: React.FC = () => {
     return 140;
   };
 
-  const [snakeState, setSnakeState] = useState<SnakeState>(
-    createInitialSnakeState(borderMode, getSpeedForDifficulty(difficulty))
-  );
+  const [snakeState, setSnakeState] = useState<SnakeState>(() => ({
+    ...createInitialSnakeState(borderMode, getSpeedForDifficulty(difficulty)),
+    palette: currentPalette,
+  }));
   const stateRef = useRef(snakeState);
   stateRef.current = snakeState;
 
@@ -123,7 +127,12 @@ export const SnakeScreen: React.FC = () => {
 
   const resetGame = () => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
-    setSnakeState(createInitialSnakeState(borderMode, getSpeedForDifficulty(difficulty)));
+    const nextPalette = getRandomSnakePalette();
+    setCurrentPalette(nextPalette);
+    setSnakeState({
+      ...createInitialSnakeState(borderMode, getSpeedForDifficulty(difficulty)),
+      palette: nextPalette,
+    });
   };
 
   const handleDirectionChange = useCallback((newDir: Direction) => {
@@ -138,6 +147,7 @@ export const SnakeScreen: React.FC = () => {
 
   // Swipe Gesture Responder
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .onEnd((e) => {
       const { translationX: dx, translationY: dy } = e;
       const absX = Math.abs(dx);
@@ -182,7 +192,10 @@ export const SnakeScreen: React.FC = () => {
             style={[styles.toggleBtn, difficulty === diff && styles.toggleBtnActive]}
             onPress={() => {
               setDifficulty(diff);
-              setSnakeState(createInitialSnakeState(borderMode, getSpeedForDifficulty(diff)));
+              setSnakeState((prev) => ({
+                ...createInitialSnakeState(borderMode, getSpeedForDifficulty(diff)),
+                palette: currentPalette,
+              }));
             }}
           >
             <Text style={[styles.toggleBtnText, difficulty === diff && styles.toggleBtnTextActive]}>
@@ -190,6 +203,29 @@ export const SnakeScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <Text style={[styles.settingLabel, { marginTop: 16 }]}>CYBER SKIN: {currentPalette.name.toUpperCase()}</Text>
+      <View style={styles.paletteRow}>
+        {SNAKE_PALETTES.map((p) => {
+          const isSelected = currentPalette.id === p.id;
+          return (
+            <TouchableOpacity
+              key={p.id}
+              style={[
+                styles.paletteCircle,
+                { backgroundColor: p.headColor, borderColor: isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.2)' },
+                isSelected && styles.paletteCircleActive,
+              ]}
+              onPress={() => {
+                setCurrentPalette(p);
+                setSnakeState((prev) => ({ ...prev, palette: p }));
+              }}
+            >
+              <View style={[styles.paletteInnerDot, { backgroundColor: p.bodyColor }]} />
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -264,5 +300,32 @@ const styles = StyleSheet.create({
   toggleBtnTextActive: {
     color: '#10B981',
     fontWeight: '800',
+  },
+  paletteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  paletteCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paletteCircleActive: {
+    transform: [{ scale: 1.15 }],
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  paletteInnerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

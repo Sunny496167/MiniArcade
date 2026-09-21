@@ -18,6 +18,7 @@ interface BreakoutCanvasProps {
   lasers?: Laser[];
   paddleLaserActive?: boolean;
   paddleHitCount?: number;
+  hasSafetyShield?: boolean;
 }
 
 export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
@@ -28,6 +29,7 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
   lasers = [],
   paddleLaserActive = false,
   paddleHitCount = 0,
+  hasSafetyShield = false,
 }) => {
   const paddleShakeX = useSharedValue(0);
 
@@ -45,8 +47,28 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
   const paddleAnimStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: paddleShakeX.value }],
   }));
+
+  const getPowerUpLabel = (type: string) => {
+    switch (type) {
+      case 'fireball': return '🔥';
+      case 'megaBall': return '⚡';
+      case 'laser': return '✦';
+      case 'sticky': return 'S';
+      case 'multiBall': return '3x';
+      case 'widePaddle': return 'W';
+      case 'shield': return '🛡';
+      case 'slowMo': return '⏱';
+      default: return '★';
+    }
+  };
+
   return (
     <View style={styles.canvas}>
+      {/* Safety Floor Shield Barrier */}
+      {hasSafetyShield && (
+        <View style={styles.safetyShieldFloor} />
+      )}
+
       {/* Bricks */}
       {bricks.map((brick) => {
         if (!brick.alive) return null;
@@ -82,13 +104,17 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
           style={[
             styles.powerUp,
             {
-              left: pow.x - 7,
-              top: pow.y - 7,
+              left: pow.x - 9,
+              top: pow.y - 9,
               backgroundColor: pow.color,
               shadowColor: pow.color,
             },
           ]}
-        />
+        >
+          <View style={styles.powerUpInner}>
+            <View style={styles.powerUpGlowDot} />
+          </View>
+        </View>
       ))}
 
       {/* Paddle */}
@@ -124,21 +150,31 @@ export const BreakoutCanvas: React.FC<BreakoutCanvasProps> = ({
       ))}
 
       {/* Balls */}
-      {balls.map((ball, idx) => (
-        <View
-          key={`ball-${idx}`}
-          style={[
-            styles.ball,
-            {
-              left: ball.x - ball.radius,
-              top: ball.y - ball.radius,
-              width: ball.radius * 2,
-              height: ball.radius * 2,
-              borderRadius: ball.radius,
-            },
-          ]}
-        />
-      ))}
+      {balls.map((ball, idx) => {
+        const isFire = ball.isFireball;
+        const isMega = ball.isMegaBall;
+        return (
+          <View
+            key={`ball-${idx}`}
+            style={[
+              styles.ball,
+              {
+                left: ball.x - ball.radius,
+                top: ball.y - ball.radius,
+                width: ball.radius * 2,
+                height: ball.radius * 2,
+                borderRadius: ball.radius,
+                backgroundColor: isFire ? '#FF4500' : isMega ? '#D8B4FE' : '#FFFFFF',
+                shadowColor: isFire ? '#F97316' : isMega ? '#A855F7' : '#00F0FF',
+                shadowRadius: isFire ? 14 : isMega ? 16 : 8,
+              },
+            ]}
+          >
+            {isFire && <View style={styles.fireballCore} />}
+            {isMega && <View style={styles.megaBallRing} />}
+          </View>
+        );
+      })}
     </View>
   );
 };
@@ -223,5 +259,50 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 6,
+  },
+  safetyShieldFloor: {
+    position: 'absolute',
+    bottom: 2,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: '#06B6D4',
+    shadowColor: '#06B6D4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 6,
+    zIndex: 10,
+  },
+  powerUpInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  powerUpGlowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.9,
+  },
+  fireballCore: {
+    position: 'absolute',
+    width: '60%',
+    height: '60%',
+    borderRadius: 8,
+    backgroundColor: '#FEF08A',
+    alignSelf: 'center',
+    top: '20%',
+  },
+  megaBallRing: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    opacity: 0.6,
   },
 });

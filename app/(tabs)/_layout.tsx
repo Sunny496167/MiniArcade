@@ -8,9 +8,14 @@ import { hapticsService } from '../../src/services/hapticsService';
 import { useArcade } from '../../src/context/ArcadeContext';
 
 export default function TabsLayout() {
-  const { profile } = useArcade();
+  const { profile, isLoading } = useArcade();
 
-  if (!profile.hasOnboarded) {
+  if (isLoading) {
+    return null;
+  }
+
+  const hasName = Boolean(profile.username && profile.username.trim().length >= 3);
+  if (!profile.hasOnboarded && !hasName) {
     return <Redirect href="/onboarding" />;
   }
 

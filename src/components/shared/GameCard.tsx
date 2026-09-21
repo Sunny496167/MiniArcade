@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Trophy, Sparkles, Zap, Layers, Grid, Target, Activity, Cpu } from 'lucide-react-native';
+import { Play, Trophy, Sparkles, Zap, Layers, Grid, Target, Activity, Cpu, Rocket, Orbit, Ghost } from 'lucide-react-native';
 import { GameMetadata } from '../../types/arcade';
 import { COLORS, SHADOWS } from '../../constants/theme';
 import { useArcade } from '../../context/ArcadeContext';
@@ -28,6 +28,12 @@ const renderGameIcon = (iconName: string, color: string, size: number = 28) => {
       return <Activity size={size} color={color} />;
     case 'Cpu':
       return <Cpu size={size} color={color} />;
+    case 'Rocket':
+      return <Rocket size={size} color={color} />;
+    case 'Orbit':
+      return <Orbit size={size} color={color} />;
+    case 'Ghost':
+      return <Ghost size={size} color={color} />;
     default:
       return <Sparkles size={size} color={color} />;
   }

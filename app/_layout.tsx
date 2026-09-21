@@ -22,9 +22,13 @@ function AppReady({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [isLoading]);
+
+  if (isLoading) {
+    return null;
+  }
 
   return <>{children}</>;
 }

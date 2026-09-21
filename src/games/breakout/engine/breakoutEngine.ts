@@ -7,11 +7,14 @@ export const CANVAS_HEIGHT = 440;
 export const PADDLE_Y = 400;
 export const PADDLE_HEIGHT = 12;
 export const DEFAULT_PADDLE_WIDTH = 75;
+export const BASE_BALL_SPEED = 5.2;
 
 export const createInitialBreakoutState = (
   difficulty: 'Novice' | 'Advanced' | 'Expert' = 'Novice',
   stage: number = 1
 ): BreakoutState => {
+  const initialSpeed = BASE_BALL_SPEED;
+  const initialAngle = (Math.random() > 0.5 ? 1 : -1) * 0.5; // ~28 degrees
   return {
     paddle: {
       x: CANVAS_WIDTH / 2 - DEFAULT_PADDLE_WIDTH / 2,
@@ -23,8 +26,8 @@ export const createInitialBreakoutState = (
       {
         x: CANVAS_WIDTH / 2,
         y: PADDLE_Y - 14,
-        vx: 3 * (Math.random() > 0.5 ? 1 : -1),
-        vy: -4,
+        vx: initialSpeed * Math.sin(initialAngle),
+        vy: -initialSpeed * Math.cos(initialAngle),
         radius: 6,
       },
     ],
@@ -43,16 +46,28 @@ export const createInitialBreakoutState = (
     powerUpActive: {
       laser: 0,
       sticky: 0,
+      fireball: 0,
+      megaBall: 0,
+      slowMo: 0,
     },
+    hasSafetyShield: false,
   };
 };
 
 export const launchStickyBalls = (state: BreakoutState): BreakoutState => {
+  const targetSpeed = getTargetBallSpeed(state);
   return {
     ...state,
-    balls: state.balls.map(b => 
-      b.isSticky ? { ...b, isSticky: false, vy: -4, vx: 3 * (Math.random() > 0.5 ? 1 : -1) } : b
-    )
+    balls: state.balls.map((b) => {
+      if (!b.isSticky) return b;
+      const angle = (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.3);
+      return {
+        ...b,
+        isSticky: false,
+        vx: targetSpeed * Math.sin(angle),
+        vy: -targetSpeed * Math.cos(angle),
+      };
+    }),
   };
 };
 
@@ -63,11 +78,19 @@ export const fireLaser = (state: BreakoutState): BreakoutState => {
     ...state,
     lasers: [
       ...state.lasers,
-      { x: paddle.x + 8, y: PADDLE_Y, vy: -6 },
-      { x: paddle.x + paddle.width - 8, y: PADDLE_Y, vy: -6 }
-    ]
+      { x: paddle.x + 8, y: PADDLE_Y, vy: -7 },
+      { x: paddle.x + paddle.width - 8, y: PADDLE_Y, vy: -7 },
+    ],
   };
 };
+
+function getTargetBallSpeed(state: BreakoutState): number {
+  let speed = BASE_BALL_SPEED + (state.stage - 1) * 0.12;
+  if (state.powerUpActive.slowMo > 0) {
+    speed *= 0.68; // 32% slower for slow-mo
+  }
+  return speed;
+}
 
 export function updateBreakout(
   state: BreakoutState
@@ -82,7 +105,11 @@ export function updateBreakout(
   if (state.isGameOver || state.isWon) {
     return {
       nextState: state,
-      brickHit: false, paddleHit: false, lostLife: false, won: false, powerUpCollected: false,
+      brickHit: false,
+      paddleHit: false,
+      lostLife: false,
+      won: false,
+      powerUpCollected: false,
     };
   }
 
@@ -96,22 +123,28 @@ export function updateBreakout(
   let newCombo = state.combo;
   let newMaxCombo = state.maxCombo;
   let newBricksDestroyed = state.bricksDestroyed;
-  
+  let hasShield = state.hasSafetyShield;
+
   const currentBricks = state.bricks.map((b) => ({ ...b }));
   const spawnedPowerUps: PowerUp[] = [...state.powerUps];
   const updatedLasers: Laser[] = [];
-
   const updatedBalls: Ball[] = [];
+
+  const targetSpeed = getTargetBallSpeed(state);
+  const isFireballActive = state.powerUpActive.fireball > 0;
+  const isMegaBallActive = state.powerUpActive.megaBall > 0;
 
   // Update Lasers
   for (const laser of state.lasers) {
-    let ly = laser.y + laser.vy;
+    const ly = laser.y + laser.vy;
     let hit = false;
     for (const brick of currentBricks) {
       if (!brick.alive) continue;
       if (
-        laser.x >= brick.x && laser.x <= brick.x + brick.width &&
-        ly >= brick.y && ly <= brick.y + brick.height
+        laser.x >= brick.x &&
+        laser.x <= brick.x + brick.width &&
+        ly >= brick.y &&
+        ly <= brick.y + brick.height
       ) {
         hit = true;
         damageBrick(brick);
@@ -125,11 +158,19 @@ export function updateBreakout(
 
   // Update Balls
   for (const ball of state.balls) {
+    const effectiveRadius = isMegaBallActive ? 14 : 6;
+
     if (ball.isSticky) {
       // Follow paddle
       updatedBalls.push({
         ...ball,
-        x: Math.max(ball.radius, Math.min(CANVAS_WIDTH - ball.radius, state.paddle.x + state.paddle.width / 2))
+        radius: effectiveRadius,
+        isFireball: isFireballActive,
+        isMegaBall: isMegaBallActive,
+        x: Math.max(
+          effectiveRadius,
+          Math.min(CANVAS_WIDTH - effectiveRadius, state.paddle.x + state.paddle.width / 2)
+        ),
       });
       continue;
     }
@@ -140,73 +181,124 @@ export function updateBreakout(
     let bvy = ball.vy;
 
     // Left and Right wall collision
-    if (bx - ball.radius <= 0) {
-      bx = ball.radius;
+    if (bx - effectiveRadius <= 0) {
+      bx = effectiveRadius;
       bvx = Math.abs(bvx);
-    } else if (bx + ball.radius >= CANVAS_WIDTH) {
-      bx = CANVAS_WIDTH - ball.radius;
+    } else if (bx + effectiveRadius >= CANVAS_WIDTH) {
+      bx = CANVAS_WIDTH - effectiveRadius;
       bvx = -Math.abs(bvx);
     }
 
     // Top wall collision
-    if (by - ball.radius <= 0) {
-      by = ball.radius;
+    if (by - effectiveRadius <= 0) {
+      by = effectiveRadius;
       bvy = Math.abs(bvy);
     }
 
     // Paddle collision
     const paddle = state.paddle;
     if (
-      by + ball.radius >= PADDLE_Y &&
-      by - ball.radius <= PADDLE_Y + paddle.height &&
+      by + effectiveRadius >= PADDLE_Y &&
+      by - effectiveRadius <= PADDLE_Y + paddle.height &&
       bx >= paddle.x &&
       bx <= paddle.x + paddle.width &&
-      bvy > 0 // Only hit when going down
+      bvy > 0 // Only hit when moving downwards
     ) {
       paddleHit = true;
       if (state.powerUpActive.sticky > 0) {
         updatedBalls.push({
-          x: bx, y: PADDLE_Y - ball.radius, vx: 0, vy: 0, radius: ball.radius, isSticky: true
+          x: bx,
+          y: PADDLE_Y - effectiveRadius,
+          vx: 0,
+          vy: 0,
+          radius: effectiveRadius,
+          isSticky: true,
+          isFireball: isFireballActive,
+          isMegaBall: isMegaBallActive,
         });
         continue;
       }
 
-      bvy = -Math.abs(bvy);
-      by = PADDLE_Y - ball.radius;
+      by = PADDLE_Y - effectiveRadius;
       const hitCenter = paddle.x + paddle.width / 2;
-      const offset = (bx - hitCenter) / (paddle.width / 2);
-      bvx = offset * 5.5;
-      if (Math.abs(bvx) < 1.5) bvx = bvx < 0 ? -1.5 : 1.5;
+      // Normal offset from -0.85 to +0.85
+      const offset = Math.max(-0.85, Math.min(0.85, (bx - hitCenter) / (paddle.width / 2)));
+      const bounceAngle = offset * (Math.PI * 0.32); // Max ~57 degrees
+
+      // STRICT SPEED NORMALIZATION
+      bvx = targetSpeed * Math.sin(bounceAngle);
+      bvy = -targetSpeed * Math.cos(bounceAngle);
     }
 
     // Brick collisions
-    let collisionOccurred = false;
     for (const brick of currentBricks) {
       if (!brick.alive) continue;
 
       if (
-        bx + ball.radius >= brick.x &&
-        bx - ball.radius <= brick.x + brick.width &&
-        by + ball.radius >= brick.y &&
-        by - ball.radius <= brick.y + brick.height
+        bx + effectiveRadius >= brick.x &&
+        bx - effectiveRadius <= brick.x + brick.width &&
+        by + effectiveRadius >= brick.y &&
+        by - effectiveRadius <= brick.y + brick.height
       ) {
-        // Simple bounce based on center proximity
-        const overlapX = Math.min(bx + ball.radius - brick.x, brick.x + brick.width - (bx - ball.radius));
-        const overlapY = Math.min(by + ball.radius - brick.y, brick.y + brick.height - (by - ball.radius));
-        
-        if (overlapX < overlapY) bvx = -bvx;
-        else bvy = -bvy;
-
         damageBrick(brick);
-        collisionOccurred = true;
-        break;
+
+        // If Mega Ball, do area-of-effect damage to neighbors
+        if (isMegaBallActive) {
+          triggerMegaShockwave(brick);
+        }
+
+        // Fireball passes straight through without bouncing!
+        if (!isFireballActive) {
+          const overlapX = Math.min(
+            bx + effectiveRadius - brick.x,
+            brick.x + brick.width - (bx - effectiveRadius)
+          );
+          const overlapY = Math.min(
+            by + effectiveRadius - brick.y,
+            brick.y + brick.height - (by - effectiveRadius)
+          );
+
+          if (overlapX < overlapY) {
+            bvx = -bvx;
+          } else {
+            bvy = -bvy;
+          }
+          break; // Single brick bounce if not fireball
+        }
       }
     }
 
+    // Wall bounce normalization & angle protection
+    // Prevent purely horizontal trapped bouncing
+    if (Math.abs(bvy) < targetSpeed * 0.32) {
+      bvy = (bvy < 0 ? -1 : 1) * targetSpeed * 0.32;
+    }
+
+    // Normalize velocity vector to exactly targetSpeed
+    const currentSpeed = Math.sqrt(bvx * bvx + bvy * bvy);
+    if (currentSpeed > 0.001) {
+      bvx = (bvx / currentSpeed) * targetSpeed;
+      bvy = (bvy / currentSpeed) * targetSpeed;
+    }
+
+    // Bottom safety shield bounce
+    if (by + effectiveRadius >= CANVAS_HEIGHT - 4 && hasShield) {
+      hasShield = false; // Consumed shield
+      by = CANVAS_HEIGHT - effectiveRadius - 6;
+      bvy = -Math.abs(bvy);
+      paddleHit = true;
+    }
+
     // Ball out of bottom
-    if (by - ball.radius < CANVAS_HEIGHT) {
+    if (by - effectiveRadius < CANVAS_HEIGHT) {
       updatedBalls.push({
-        x: bx, y: by, vx: bvx, vy: bvy, radius: ball.radius,
+        x: bx,
+        y: by,
+        vx: bvx,
+        vy: bvy,
+        radius: effectiveRadius,
+        isFireball: isFireballActive,
+        isMegaBall: isMegaBallActive,
       });
     }
   }
@@ -214,7 +306,11 @@ export function updateBreakout(
   function damageBrick(brick: Brick) {
     if (brick.type === 4) return; // Unbreakable
     brickHit = true;
-    brick.hp -= 1;
+
+    // Fireball deals double damage / instant destruction to basic bricks
+    const damage = isFireballActive ? 2 : 1;
+    brick.hp -= damage;
+
     if (brick.hp <= 0) {
       brick.alive = false;
       newCombo += 1;
@@ -227,8 +323,8 @@ export function updateBreakout(
     }
   }
 
-  function triggerExplosion(source: Brick) {
-    const range = 60;
+  function triggerMegaShockwave(source: Brick) {
+    const range = 50;
     const cx = source.x + source.width / 2;
     const cy = source.y + source.height / 2;
 
@@ -236,7 +332,28 @@ export function updateBreakout(
       if (!other.alive || other.id === source.id || other.type === 4) continue;
       const ox = other.x + other.width / 2;
       const oy = other.y + other.height / 2;
-      const dist = Math.sqrt((cx - ox)**2 + (cy - oy)**2);
+      const dist = Math.sqrt((cx - ox) ** 2 + (cy - oy) ** 2);
+      if (dist < range) {
+        other.hp -= 1;
+        if (other.hp <= 0) {
+          other.alive = false;
+          newBricksDestroyed += 1;
+          newScore += other.points;
+        }
+      }
+    }
+  }
+
+  function triggerExplosion(source: Brick) {
+    const range = 65;
+    const cx = source.x + source.width / 2;
+    const cy = source.y + source.height / 2;
+
+    for (const other of currentBricks) {
+      if (!other.alive || other.id === source.id || other.type === 4) continue;
+      const ox = other.x + other.width / 2;
+      const oy = other.y + other.height / 2;
+      const dist = Math.sqrt((cx - ox) ** 2 + (cy - oy) ** 2);
       if (dist < range) {
         other.hp = 0;
         other.alive = false;
@@ -249,14 +366,27 @@ export function updateBreakout(
 
   function rollPowerUp(brick: Brick) {
     const isSurprise = brick.type === 6;
-    if (isSurprise || Math.random() < 0.15) {
-      const types: PowerUpType[] = ['widePaddle', 'multiBall', 'laser', 'sticky'];
+    if (isSurprise || Math.random() < 0.22) {
+      const types: PowerUpType[] = [
+        'widePaddle',
+        'multiBall',
+        'laser',
+        'sticky',
+        'fireball',
+        'megaBall',
+        'shield',
+        'slowMo',
+      ];
       const selected = types[Math.floor(Math.random() * types.length)];
-      
+
       let color = COLORS.cyan;
       if (selected === 'widePaddle') color = COLORS.amber;
-      if (selected === 'laser') color = COLORS.red;
+      if (selected === 'laser') color = '#EF4444';
       if (selected === 'sticky') color = COLORS.lime;
+      if (selected === 'fireball') color = '#F97316'; // Blazing orange
+      if (selected === 'megaBall') color = '#A855F7'; // Mega purple
+      if (selected === 'shield') color = '#06B6D4'; // Cyan shield
+      if (selected === 'slowMo') color = '#3B82F6'; // Blue clock
 
       spawnedPowerUps.push({
         id: `pow-${Date.now()}-${Math.random()}`,
@@ -281,21 +411,25 @@ export function updateBreakout(
     if (currentLives <= 0) {
       isGameOver = true;
     } else {
+      const angle = (Math.random() > 0.5 ? 1 : -1) * 0.4;
       updatedBalls.push({
         x: state.paddle.x + state.paddle.width / 2,
         y: PADDLE_Y - 14,
-        vx: 3 * (Math.random() > 0.5 ? 1 : -1),
-        vy: -4,
+        vx: targetSpeed * Math.sin(angle),
+        vy: -targetSpeed * Math.cos(angle),
         radius: 6,
       });
     }
   }
 
-  // Update Falling Power-ups
+  // Update Falling Power-ups & Timers
   const activePowerUps: PowerUp[] = [];
   let newPaddleWidth = state.paddle.width;
-  let newLaserActive = Math.max(0, state.powerUpActive.laser - 16); // Decays per frame (~16ms)
+  let newLaserActive = Math.max(0, state.powerUpActive.laser - 16);
   let newStickyActive = Math.max(0, state.powerUpActive.sticky - 16);
+  let newFireballActive = Math.max(0, state.powerUpActive.fireball - 16);
+  let newMegaBallActive = Math.max(0, state.powerUpActive.megaBall - 16);
+  let newSlowMoActive = Math.max(0, state.powerUpActive.slowMo - 16);
 
   for (const pow of spawnedPowerUps) {
     const nextY = pow.y + pow.vy;
@@ -312,16 +446,46 @@ export function updateBreakout(
         if (updatedBalls.length > 0) {
           const lead = updatedBalls[0];
           updatedBalls.push(
-            { x: lead.x, y: lead.y, vx: (lead.vx || 2) * -0.8, vy: (lead.vy || -4), radius: 6 },
-            { x: lead.x, y: lead.y, vx: (lead.vx || -2) * 1.2, vy: (lead.vy || -4) * 0.9, radius: 6 }
+            {
+              x: lead.x,
+              y: lead.y,
+              vx: lead.vx * -0.9 + 1,
+              vy: lead.vy,
+              radius: lead.radius,
+              isFireball: isFireballActive,
+              isMegaBall: isMegaBallActive,
+            },
+            {
+              x: lead.x,
+              y: lead.y,
+              vx: lead.vx * 0.9 - 1,
+              vy: lead.vy,
+              radius: lead.radius,
+              isFireball: isFireballActive,
+              isMegaBall: isMegaBallActive,
+            }
           );
         } else {
-           updatedBalls.push({ x: pow.x, y: PADDLE_Y - 14, vx: 2, vy: -4, radius: 6 });
+          updatedBalls.push({
+            x: pow.x,
+            y: PADDLE_Y - 14,
+            vx: 2,
+            vy: -targetSpeed,
+            radius: 6,
+          });
         }
       } else if (pow.type === 'laser') {
-        newLaserActive = 10000; // 10 seconds
+        newLaserActive = 10000; // 10s
       } else if (pow.type === 'sticky') {
-        newStickyActive = 15000; // 15 seconds
+        newStickyActive = 12000; // 12s
+      } else if (pow.type === 'fireball') {
+        newFireballActive = 8000; // 8s
+      } else if (pow.type === 'megaBall') {
+        newMegaBallActive = 9000; // 9s
+      } else if (pow.type === 'shield') {
+        hasShield = true; // Bottom safety floor
+      } else if (pow.type === 'slowMo') {
+        newSlowMoActive = 8000; // 8s
       }
     } else if (nextY < CANVAS_HEIGHT) {
       activePowerUps.push({ ...pow, y: nextY });
@@ -344,10 +508,14 @@ export function updateBreakout(
     } else {
       nextStageTriggered = true;
       newStage += 1;
-      // Reset balls and paddle for new stage, clear powerups
+      const angle = (Math.random() > 0.5 ? 1 : -1) * 0.4;
       updatedBalls.length = 0;
       updatedBalls.push({
-        x: CANVAS_WIDTH / 2, y: PADDLE_Y - 14, vx: 3, vy: -4, radius: 6
+        x: CANVAS_WIDTH / 2,
+        y: PADDLE_Y - 14,
+        vx: targetSpeed * Math.sin(angle),
+        vy: -targetSpeed * Math.cos(angle),
+        radius: 6,
       });
       activePowerUps.length = 0;
       updatedLasers.length = 0;
@@ -378,7 +546,11 @@ export function updateBreakout(
       powerUpActive: {
         laser: newLaserActive,
         sticky: newStickyActive,
-      }
+        fireball: newFireballActive,
+        megaBall: newMegaBallActive,
+        slowMo: newSlowMoActive,
+      },
+      hasSafetyShield: hasShield,
     },
     brickHit,
     paddleHit,

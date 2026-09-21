@@ -11,6 +11,9 @@ import { TicTacToeScreen } from '../../src/games/tictactoe/TicTacToeScreen';
 import { SnakeLadderScreen } from '../../src/games/snakeLadder/SnakeLadderScreen';
 import { MemoryScreen } from '../../src/games/memory/MemoryScreen';
 import { SimonScreen } from '../../src/games/simon/SimonScreen';
+import { PokeManScreen } from '../../src/games/pokeman/PokeManScreen';
+import { BubbleScreen } from '../../src/games/bubble/BubbleScreen';
+import { GalaxyScreen } from '../../src/games/galaxy/GalaxyScreen';
 import { COLORS } from '../../src/constants/theme';
 
 export default function GameHostScreen() {
@@ -46,6 +49,12 @@ export default function GameHostScreen() {
       return <MemoryScreen />;
     case 'simon':
       return <SimonScreen />;
+    case 'pokeman':
+      return <PokeManScreen />;
+    case 'bubble':
+      return <BubbleScreen />;
+    case 'galaxy':
+      return <GalaxyScreen />;
     default:
       return (
         <View style={styles.errorContainer}>

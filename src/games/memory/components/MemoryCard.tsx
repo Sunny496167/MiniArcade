@@ -47,8 +47,11 @@ export function MemoryCard({ card, onPress, disabled, size }: MemoryCardProps) {
     };
   });
 
-  // @ts-ignore - Dynamic icon rendering
-  const IconComponent = Icons[card.iconName] || Icons.Circle;
+  const IconComponent = (Icons[card.iconName] || Icons.Circle) as React.ComponentType<{
+    size: number;
+    color: string;
+    strokeWidth: number;
+  }>;
 
   return (
     <TouchableOpacity
@@ -61,7 +64,7 @@ export function MemoryCard({ card, onPress, disabled, size }: MemoryCardProps) {
         {/* FRONT OF CARD (Hidden when flipped) */}
         <Animated.View style={[styles.cardFace, styles.cardFront, frontAnimatedStyle]}>
           <LinearGradient
-            colors={[COLORS.bgCardHover, COLORS.bgElevated]}
+            colors={[COLORS.bgCardHover, COLORS.bgElevated] as [string, string]}
             style={styles.gradient}
           />
           <View style={styles.frontBorder} />
@@ -78,7 +81,7 @@ export function MemoryCard({ card, onPress, disabled, size }: MemoryCardProps) {
           ]}
         >
           <LinearGradient
-            colors={card.isMatched ? COLORS.gradientCyanPurple : ['#1D263B', '#111726']}
+            colors={(card.isMatched ? COLORS.gradientCyanPurple : ['#1D263B', '#111726']) as [string, string]}
             style={styles.gradient}
           />
           <View style={[styles.backBorder, card.isMatched && { borderColor: COLORS.cyan }]} />
@@ -96,14 +99,17 @@ export function MemoryCard({ card, onPress, disabled, size }: MemoryCardProps) {
 const styles = StyleSheet.create({
   container: {
     margin: 4,
-    perspective: 1000, // Provides 3D perspective on some platforms
   },
   cardInner: {
     flex: 1,
     position: 'relative',
   },
   cardFace: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -116,17 +122,29 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgCardHover,
   },
   gradient: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 12,
   },
   frontBorder: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   backBorder: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.borderActive,

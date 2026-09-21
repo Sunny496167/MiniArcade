@@ -87,6 +87,21 @@ class HapticsService {
     }
   }
 
+  async error() {
+    if (!this.enabled) return;
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100, 50, 100]);
+      }
+      return;
+    }
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } catch {
+      // Ignore
+    }
+  }
+
   async selection() {
     if (!this.enabled) return;
     if (Platform.OS === 'web') {

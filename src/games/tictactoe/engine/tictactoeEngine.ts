@@ -22,6 +22,12 @@ export const createInitialTicTacToeState = (): TicTacToeState => {
     xWins: 0,
     oWins: 0,
     ties: 0,
+    currentRound: 1,
+    totalRounds: 5,
+    roundHistory: [],
+    roundStarter: 'X',
+    matchOver: false,
+    matchWinner: null,
   };
 };
 

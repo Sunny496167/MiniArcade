@@ -20,7 +20,7 @@ export function SimonScreen() {
   const [phase, setPhase] = useState<GamePhase>('IDLE');
   
   // Track timers so we can clear them if unmounted/paused
-  const timerRefs = useRef<NodeJS.Timeout[]>([]);
+  const timerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const addTimer = (fn: () => void, ms: number) => {
     const t = setTimeout(fn, ms);
@@ -90,7 +90,6 @@ export function SimonScreen() {
       game={GAME_METADATA}
       score={Math.max(0, sequence.length - 1)}
       onResetGame={initGame}
-      onPause={clearTimers} // Stop playback if paused
     >
       {({ gameState, triggerGameOver }) => {
         
